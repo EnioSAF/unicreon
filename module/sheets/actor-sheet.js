@@ -220,10 +220,25 @@ export class UnicreonActorSheet extends ActorSheet {
     const sys = actor.system ?? {};
     const items = actor.items ?? [];
 
-    // On trie juste par sort Foundry
-    const sorted = [...items].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+    // ------------------------------------------------------------
+    // 0) Rendre les FLAGS accessibles au template
+    // ------------------------------------------------------------
+    // Foundry ne met pas forcément actor.flags sur "data" pour toi,
+    // donc on l'ajoute manuellement et on s'assure que
+    // flags.unicreon existe avec des valeurs par défaut.
+    const rawFlags = actor.flags ?? {};
+    const unicreonFlags = rawFlags.unicreon ?? {};
 
-    // Caracs de base Unicreon
+    data.flags = data.flags ?? {};
+    data.flags.unicreon = {
+      story: unicreonFlags.story ?? "",
+      race: unicreonFlags.race ?? "",
+      metier: unicreonFlags.metier ?? ""
+    };
+
+    // ------------------------------------------------------------
+    // 1) Caracs de base Unicreon
+    // ------------------------------------------------------------
     data.caracKeys = [
       { key: "puissance", label: "Puissance" },
       { key: "agilite", label: "Agilité" },
@@ -235,12 +250,16 @@ export class UnicreonActorSheet extends ActorSheet {
     data.attributes = sys.attributes ?? {};
     data.pools = sys.pools ?? {};
 
-    // Barre d’XP / niveau (visuel)
+    // ------------------------------------------------------------
+    // 2) Barre d’XP / niveau (visuel)
+    // ------------------------------------------------------------
     const progress = sys.progress ?? {};
     const xp = Number(progress.xp ?? 0);
     const xpNext = Number(progress.xpNext ?? 100);
     const level = Number(progress.level ?? 1);
-    const xpPct = xpNext > 0 ? Math.max(0, Math.min(100, Math.round((xp / xpNext) * 100))) : 0;
+    const xpPct = xpNext > 0
+      ? Math.max(0, Math.min(100, Math.round((xp / xpNext) * 100)))
+      : 0;
 
     data.progress = { level, xp, xpNext, xpPercent: xpPct };
 
@@ -248,6 +267,7 @@ export class UnicreonActorSheet extends ActorSheet {
     const gearTypes = ["arme", "armure", "objet", "potion"];
 
     // Groupes d'objets pour les onglets
+    const sorted = [...items].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
     data.itemGroups = {
       race: sorted.filter(i => i.type === "race"),
       metier: sorted.filter(i => i.type === "metier"),
@@ -256,10 +276,11 @@ export class UnicreonActorSheet extends ActorSheet {
       gearItems: sorted.filter(i => gearTypes.includes(i.type))
     };
 
-    // Effets manuels stockés sur l'acteur : system.effects
+    // ------------------------------------------------------------
+    // 3) Effets manuels stockés sur l'acteur : system.effects
+    // ------------------------------------------------------------
     const effects = Array.isArray(sys.effects) ? sys.effects : [];
 
-    // Labels jolies pour les caracs
     const caracLabels = {
       puissance: "Puissance",
       agilite: "Agilité",
@@ -270,7 +291,6 @@ export class UnicreonActorSheet extends ActorSheet {
 
     data.activeEffects = effects.map(eff => {
       const label = eff.label || "(effet sans nom)";
-
       const type = eff.type || "buff";
       const isBuff = type === "buff";
       const isDebuff = type === "debuff";
@@ -310,34 +330,33 @@ export class UnicreonActorSheet extends ActorSheet {
       };
     });
 
-    // Bonus/malus numériques calculés par l’Actor
+    // ------------------------------------------------------------
+    // 4) Bonus/malus numériques calculés par l’Actor
+    // ------------------------------------------------------------
     const derived = sys.derived ?? {};
     data.caracMods = derived.caracMods ?? {};
     data.poolMods = derived.poolMods ?? {};
 
-    // PV effectifs (base + bonus d’effets sur "pv.max")
+    // ------------------------------------------------------------
+    // 5) PV effectifs (base + bonus d’effets sur "pv.max")
+    // ------------------------------------------------------------
     const pools = sys.pools ?? {};
     const pvData = pools.pv ?? {};
 
-    // Ce qui est stocké dans le système = "PV de base"
     const baseMaxRaw = Number(pvData.max ?? 0);
     let baseVal = Number(pvData.value ?? 0);
-
     const baseMax = Number.isFinite(baseMaxRaw) && baseMaxRaw > 0 ? baseMaxRaw : 0;
 
-    // On clamp la valeur de base entre 0 et baseMax
     if (!Number.isFinite(baseVal)) baseVal = 0;
     if (baseVal < 0) baseVal = 0;
     if (baseVal > baseMax) baseVal = baseMax;
 
-    // Bonus venant des effets / objets équipés : [2 PV], etc.
     const bonusMap = derived.poolBonusValues ?? {};
-    const bonus = Number(bonusMap["pv.max"] ?? 0) || 0;   // ex : +2 via [2 PV]
+    const bonus = Number(bonusMap["pv.max"] ?? 0) || 0;
 
-    const effectiveMax = baseMax + bonus;                 // ex : 12 + 2 = 14
-    let effectiveVal = baseVal + bonus;                   // ce qu'on affiche à gauche
+    const effectiveMax = baseMax + bonus;
+    let effectiveVal = baseVal + bonus;
 
-    // Clamp affichage dans 0..max effectif
     if (!Number.isFinite(effectiveVal)) effectiveVal = 0;
     if (effectiveVal < 0) effectiveVal = 0;
     if (effectiveVal > effectiveMax) effectiveVal = effectiveMax;
@@ -347,14 +366,16 @@ export class UnicreonActorSheet extends ActorSheet {
     else if (bonus < 0) pvClass = "negative";
 
     data.pvEffective = {
-      baseMax,          // valeur de droite (PV max "nus")
-      bonus,            // +2 / -2 / 0
-      max: effectiveMax, // max réel (affiché dans la petite flèche)
-      value: effectiveVal, // ce qu’on montre dans la case de gauche
+      baseMax,
+      bonus,
+      max: effectiveMax,
+      value: effectiveVal,
       cssClass: pvClass
     };
 
-    // Charge / capacité (calculée dans prepareDerivedData)
+    // ------------------------------------------------------------
+    // 6) Charge / capacité (calculée dans prepareDerivedData)
+    // ------------------------------------------------------------
     const derivedCarry = sys.derived?.carry ?? {};
     const baseCapacity = Number(sys.carry?.base ?? 10);
 
@@ -866,7 +887,7 @@ Hooks.once("init", () => {
   // Fiche d’actor custom
   Actors.unregisterSheet("core", ActorSheet);
   Actors.registerSheet("unicreon", UnicreonActorSheet, {
-    types: ["personnage"],
+    types: ["personnage", "pnj"],
     makeDefault: true
   });
 });
@@ -1046,7 +1067,7 @@ Hooks.once("ready", () => {
     }
 
     // 2) Pouvoir / rituel / sort → ton système custom si dispo
-    const magicTypes = ["pouvoir", "sort", "rituel", "incantation"];
+    const magicTypes = ["pouvoir", "incantation", "rituel", "sort", "spell"];
     if (magicTypes.includes(item.type) && game.unicreon?.useItem) {
       return game.unicreon.useItem(item);
     }

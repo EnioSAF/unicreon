@@ -1,6 +1,5 @@
 // systems/unicreon/module/sheets/item-sheet.js
-// Feuille d'objet Unicreon : gère tous les types d'items (armes, armures, objets,
-// potions, incantations, pouvoirs, races, métiers, compétences).
+// Fiche d'objet générique Unicreon : armes, armures, objets, potions, etc.
 
 export class UnicreonItemSheet extends ItemSheet {
   static get defaultOptions() {
@@ -11,7 +10,7 @@ export class UnicreonItemSheet extends ItemSheet {
       height: 540,
       tabs: [
         {
-          navSelector: ".tabs",
+          navSelector: ".sheet-tabs",
           contentSelector: ".sheet-body",
           initial: "props"
         }
@@ -19,22 +18,26 @@ export class UnicreonItemSheet extends ItemSheet {
     });
   }
 
-  /** Inject the system data so the template can access system.* directly */
+  get template() {
+    return `systems/${game.system.id}/templates/item/item-sheet.hbs`;
+  }
+
   getData(options = {}) {
     const data = super.getData(options);
-    // In Foundry V10+, item.system est déjà présent, mais on sécurise.
-    data.system = data.item.system ?? data.system ?? {};
+    const item = data.item ?? data.document ?? this.item;
+
+    data.item = item;
+    data.system = item.system ?? item.data?.data ?? item.data?.system;
+
     return data;
   }
 
-  /** Activate listeners for buttons inside the sheet */
   activateListeners(html) {
     super.activateListeners(html);
     if (!this.isEditable) return;
 
     html.on("click", "[data-action='use-item']", ev => {
       ev.preventDefault();
-      // Le système expose une fonction utilitaire optionnelle pour appliquer l'effet
       if (game.unicreon?.useItem) {
         game.unicreon.useItem(this.item);
       } else {
@@ -46,9 +49,26 @@ export class UnicreonItemSheet extends ItemSheet {
   }
 }
 
-// Enregistre la feuille comme feuille d'item par défaut du système.
+// Enregistre la sheet générique comme défaut pour tous les items,
+// sauf ceux qui auront une sheet plus spécifique.
 Hooks.once("init", () => {
   console.log("Unicreon | registering UnicreonItemSheet");
-  Items.unregisterSheet("core", ItemSheet);
-  Items.registerSheet("unicreon", UnicreonItemSheet, { makeDefault: true });
+
+  Items.registerSheet("unicreon", UnicreonItemSheet, {
+    label: "Fiche d'objet Unicreon",
+    makeDefault: true,
+    types: [
+      "objet",
+      "arme",
+      "armure",
+      "potion",
+      "metier",
+      "race",
+      "rituel",
+      "sort",
+      "incantation",
+      "pouvoir"
+      // pas "competence" : la sheet spéciale va prendre ce type.
+    ]
+  });
 });
