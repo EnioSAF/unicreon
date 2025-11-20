@@ -1,0 +1,120 @@
+<form class="{{cssClass}} unicreon item-sheet" autocomplete="off">
+  <header class="sheet-header flexrow">
+    <div class="item-image">
+      <img src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    </div>
+
+    <div class="item-summary flexcol">
+      <div class="item-name">
+        <input type="text" name="name" value="{{item.name}}" />
+      </div>
+
+      <div class="item-meta flexrow">
+        <span class="tag">Objet</span>
+        {{#if system.category}}
+        <span class="tag">{{system.category}}</span>
+        {{/if}}
+        {{#if system.pricePo}}
+        <span class="tag">{{system.pricePo}} PO</span>
+        {{/if}}
+      </div>
+    </div>
+  </header>
+
+  <nav class="sheet-tabs tabs" data-group="primary">
+    <a class="item" data-tab="props" data-group="primary">Propriétés</a>
+    <a class="item" data-tab="description" data-group="primary">Description</a>
+  </nav>
+
+  <section class="sheet-body">
+    <!-- PROPRIÉTÉS ------------------------------------------------------->
+    <div class="tab" data-group="primary" data-tab="props">
+      <div class="form-group">
+        <label>Rareté</label>
+        <select name="system.rarity">
+          <option value="commun" {{optionSel system.rarity "commun" }}>Commun</option>
+          <option value="rare" {{optionSel system.rarity "rare" }}>Rare</option>
+          <option value="tres-rare" {{optionSel system.rarity "tres-rare" }}>Très rare</option>
+          <option value="unique" {{optionSel system.rarity "unique" }}>Unique</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Prix (PO)</label>
+        <input type="number" name="system.pricePo" value="{{system.pricePo}}" />
+      </div>
+
+      <div class="form-group">
+        <label>Encombrement</label>
+        <input type="number" name="system.encumbrance" value="{{system.encumbrance}}" />
+      </div>
+
+      <div class="form-group">
+        <label>Capacité (PE)</label>
+        <input type="number" name="system.capacityPe" value="{{system.capacityPe}}" />
+      </div>
+
+      <hr />
+
+      <div class="form-group">
+        <label>Objet équipable</label>
+        <input type="checkbox" name="system.equippable" {{checked system.equippable}} />
+      </div>
+
+      <div class="form-group">
+        <label>Équipé ?</label>
+        <input type="checkbox" name="system.equipped" {{checked system.equipped}} />
+      </div>
+
+      <div class="form-group">
+        <label>Utilisations restantes</label>
+        <input type="number" name="system.uses" value="{{system.uses}}" min="0" />
+        <span style="margin:0 0.25rem;">/</span>
+        <input type="number" name="system.usesMax" value="{{system.usesMax}}" min="0" />
+      </div>
+
+      <div class="form-group">
+        <label>Détruire après usage ?</label>
+        <input type="checkbox" name="system.destroyOnUse" {{checked system.destroyOnUse}} />
+      </div>
+
+      <div class="form-group">
+        <label>&nbsp;</label>
+        <button type="button" data-action="use-item">
+          Utiliser cet objet
+        </button>
+      </div>
+
+      <hr />
+
+      <div class="form-group stacked">
+        <label>Effet passif (quand équipé)</label>
+        <input type="text" name="system.passiveTag" value="{{system.passiveTag}}"
+          placeholder="[puissance +1], [2 pv]" />
+        <p class="hint">
+          Appliqué automatiquement tant que l'objet est <strong>équipé</strong>.
+        </p>
+      </div>
+
+      <div class="form-group stacked">
+        <label>Effet actif (tag UNICREON)</label>
+        <input type="text" name="system.effectTag" value="{{system.effectTag}}"
+          placeholder="[2 PV], [-1 PV], [puissance 3], [pouvoir 4]" />
+        <p class="hint">
+          Utilisé par <strong>UNICREON.USE</strong> :
+          <code>[2 PV]</code> soigne 2 PV,
+          <code>[-1 PV]</code> inflige 1 PV,
+          <code>[puissance 3]</code> lance un test de Puissance diff. 3, etc.
+        </p>
+      </div>
+    </div>
+
+    <!-- DESCRIPTION ------------------------------------------------------>
+    <div class="tab" data-group="primary" data-tab="description">
+      <div class="form-group stacked">
+        <label>Description</label>
+        {{editor system.description target="system.description" button=true owner=owner editable=editable}}
+      </div>
+    </div>
+  </section>
+</form>

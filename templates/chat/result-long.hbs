@@ -1,0 +1,8 @@
+
+<div class="unicreon-card">
+  <h3>Action longue — {{name}}</h3>
+  <p>{{segments}} segments ({{segDur}}), Diff base {{difficulty}}. PK dépensés au 1er jet : {{pk}}.</p>
+  <ol>
+    {{#each steps as |s i|}}<li>Segment {{inc i}} — {{s}}</li>{{/each}}
+  </ol>
+</div>

@@ -1,0 +1,38 @@
+
+<form class="unicreon-roll">
+  <div class="form-group">
+    <label>Caractéristique</label>
+    <select name="carac">
+      <option value="puissance">Puissance</option>
+      <option value="agilite">Agilité</option>
+      <option value="perception">Perception</option>
+      <option value="volonte">Volonté</option>
+      <option value="pouvoir">Pouvoir</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Compétence (optionnelle)</label>
+    <select name="skill">
+      <option value="-1">— Aucune —</option>
+      {{#each actor.system.skills as |s i|}}
+        <option value="{{i}}">{{s.name}} ({{s.die}})</option>
+      {{/each}}
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Difficulté</label>
+    <select name="diff">
+      <option value="3">{{localize "UNICREON.DIFF_3"}}</option>
+      <option value="4" selected>{{localize "UNICREON.DIFF_4"}}</option>
+      <option value="5">{{localize "UNICREON.DIFF_5"}}</option>
+      <option value="6">{{localize "UNICREON.DIFF_6"}}</option>
+      <option value="8">{{localize "UNICREON.DIFF_8"}}</option>
+      <option value="10">{{localize "UNICREON.DIFF_10"}}</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Karma à dépenser (PK)</label>
+    <input type="number" name="pk" min="0" max="{{actor.system.pools.pk.value}}" value="0"/>
+    <p class="hint">1 PK = difficulté -1 ; réussite / échec aux effets exacerbés.</p>
+  </div>
+</form>

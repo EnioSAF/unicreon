@@ -1,0 +1,40 @@
+
+<form>
+  <div class="form-group">
+    <label>Caractéristique</label>
+    <select name="carac">
+      <option value="puissance">Puissance</option>
+      <option value="agilite">Agilité</option>
+      <option value="perception">Perception</option>
+      <option value="volonte">Volonté</option>
+      <option value="pouvoir">Pouvoir</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Compétence (optionnelle)</label>
+    <select name="skill">
+      <option value="-1">— Aucune —</option>
+      {{#each actor.system.skills as |s i|}}<option value="{{i}}">{{s.name}} ({{s.die}})</option>{{/each}}
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Difficulté</label>
+    <select name="diff">
+      <option value="3">Facile (3)</option><option value="4" selected>Moyen (4)</option>
+      <option value="5">Difficile (5)</option><option value="6">Très difficile (6)</option>
+      <option value="8">Improbable (8)</option><option value="10">Impossible (10)</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Segments</label>
+    <input type="number" name="segments" min="2" value="3"/>
+  </div>
+  <div class="form-group">
+    <label>Durée d'un segment (note)</label>
+    <input type="text" name="segDur" placeholder="10 minutes / 1 heure / 1 jour ..."/>
+  </div>
+  <div class="form-group">
+    <label>PK à dépenser au 1er jet</label>
+    <input type="number" name="pk" min="0" value="0"/>
+  </div>
+</form>

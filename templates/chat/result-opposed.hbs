@@ -1,0 +1,7 @@
+
+<div class="unicreon-card">
+  <h3>Opposition — {{attName}} vs {{defName}}</h3>
+  <p>Att : {{capitalize attCarac}} ({{attDieCar}}/{{attDieSkill}}) → {{attKeep}} {{#if pkA}}(PK {{pkA}}){{/if}}</p>
+  <p>Def : {{capitalize defCarac}} ({{defDieCar}}/{{defDieSkill}}) → {{defKeep}} {{#if pkD}}(PK {{pkD}}){{/if}}</p>
+  <p>{{#if success}}✅ <b>{{attName}}</b> l'emporte{{else}}🛡️ <b>{{defName}}</b> résiste{{/if}}</p>
+</div>

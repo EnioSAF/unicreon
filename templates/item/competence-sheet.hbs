@@ -1,0 +1,49 @@
+<form class="{{cssClass}} unicreon-competence-sheet" autocomplete="off">
+  <header class="sheet-header flexrow">
+    <img class="profile-img" src="{{item.img}}" data-edit="img">
+
+    <div class="header-fields">
+      <h1>
+        <input name="name" type="text" value="{{item.name}}" />
+      </h1>
+
+      <div class="grid grid-2col">
+        <div class="field">
+          <label>Caractéristique liée</label>
+          <select name="system.caracKey">
+            <option value="puissance" {{optionSel system.caracKey "puissance"}}>Puissance</option>
+            <option value="agilite"   {{optionSel system.caracKey "agilite"}}>Agilité</option>
+            <option value="perception"{{optionSel system.caracKey "perception"}}>Perception</option>
+            <option value="volonte"   {{optionSel system.caracKey "volonte"}}>Volonté</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Niveau (dé)</label>
+          <select name="system.level">
+            <option value="d4"  {{optionSel system.level "d4"}}>d4</option>
+            <option value="d6"  {{optionSel system.level "d6"}}>d6</option>
+            <option value="d8"  {{optionSel system.level "d8"}}>d8</option>
+            <option value="d10" {{optionSel system.level "d10"}}>d10</option>
+            <option value="d12" {{optionSel system.level "d12"}}>d12</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="button" class="competence-roll">
+        🎲 Utiliser la compétence
+      </button>
+    </div>
+  </header>
+
+  <nav class="sheet-tabs tabs">
+    <a class="item" data-tab="description">Description</a>
+  </nav>
+
+  <section class="sheet-body">
+    <div class="tab" data-tab="description">
+      <label>Description :</label>
+      {{editor system.description target="system.description" button=true owner=owner editable=editable}}
+    </div>
+  </section>
+</form>

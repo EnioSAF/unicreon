@@ -1,0 +1,429 @@
+<form class="{{cssClass}} unicreon-actor-sheet" autocomplete="off">
+  <header class="unicreon-header flexrow">
+    <div class="portrait">
+      <img src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+    </div>
+
+    <div class="header-main">
+      <div class="name-row">
+        <input name="name" type="text" value="{{actor.name}}" />
+      </div>
+      <div class="story-row">
+        <label>Histoire / métier / don / défaut</label>
+        <textarea name="system.story">{{system.story}}</textarea>
+      </div>
+      <div class="tags-row">
+        <div class="tag-block">
+          <span class="tag-label">Race</span>
+          <input type="text" name="system.race" value="{{system.race}}" class="tag-input"
+            placeholder="Humain, Elfe, Créature onirique…" />
+        </div>
+
+        <div class="tag-block">
+          <span class="tag-label">Métier</span>
+          <input type="text" name="system.metier" value="{{system.metier}}" class="tag-input"
+            placeholder="Guerrier, Inquisiteur, Alchimiste…" />
+        </div>
+      </div>
+    </div>
+
+    <div class="header-side">
+      <div class="resource-grid">
+        <div class="resource">
+          <label>Santé</label>
+          <div class="resource-row {{pvEffective.cssClass}}">
+            {{!-- PV courants : valeur effective (clampée) mais on écrit toujours dans system.pools.pv.value --}}
+            <input type="number" name="system.pools.pv.value" value="{{pvEffective.value}}" />
+            <span>/</span>
+
+            <div class="resource-max-with-mod">
+              {{!-- PV de base (ce qui est vraiment stocké dans le système) --}}
+              <input type="number" name="system.pools.pv.max" value="{{pvEffective.baseMax}}" />
+
+              {{!-- Affichage du bonus : → 14 PV en vert/rouge --}}
+              {{#if pvEffective.bonus}}
+              <span class="pool-mod {{pvEffective.cssClass}}">
+                → {{pvEffective.max}} PV
+              </span>
+              {{/if}}
+            </div>
+
+            <span class="suffix">PV</span>
+          </div>
+        </div>
+
+        <div class="resource">
+          <label>Karma</label>
+          <div class="resource-row">
+            <input type="number" name="system.pools.pk.value" value="{{pools.pk.value}}" />
+            <span>/</span>
+            <input type="number" name="system.pools.pk.max" value="{{pools.pk.max}}" />
+            <span class="suffix">PK</span>
+          </div>
+        </div>
+
+        <div class="resource">
+          <label>Richesse</label>
+          <div class="resource-row">
+            <input type="number" name="system.pools.po.value" value="{{pools.po.value}}" />
+            <span class="suffix">PO</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="carry-block">
+        <div class="carry-top-row">
+          <label>Charge</label>
+          <span class="carry-values">
+            {{carry.used}} / {{carry.max}} PE
+          </span>
+        </div>
+        <div class="carry-bar">
+          <div class="carry-bar-fill {{carry.cssClass}}" style="width: {{carry.percent}}%;"></div>
+        </div>
+        <div class="carry-bottom-row">
+          <span class="carry-base">
+            Base :
+            <input type="number" name="system.carry.base" value="{{carry.base}}" min="0" />
+            PE
+          </span>
+          {{#if carry.bonus}}
+          <span class="carry-bonus">+{{carry.bonus}} PE via équipement</span>
+          {{/if}}
+        </div>
+      </div>
+
+      <div class="xp-block">
+        <div class="xp-row">
+          <label>Niveau</label>
+          <input type="number" name="system.progress.level" value="{{progress.level}}" min="1" />
+        </div>
+        <div class="xp-row">
+          <label>XP</label>
+          <input type="number" name="system.progress.xp" value="{{progress.xp}}" />
+          <span>/</span>
+          <input type="number" name="system.progress.xpNext" value="{{progress.xpNext}}" />
+        </div>
+        <div class="xp-bar">
+          <div class="xp-bar-fill" style="width: {{progress.xpPercent}}%;"></div>
+          <span class="xp-bar-label">{{progress.xp}} / {{progress.xpNext}} XP</span>
+        </div>
+      </div>
+
+      <button type="button" class="unicreon-test-btn" data-action="roll-test">
+        🎲 Test rapide
+      </button>
+  </header>
+
+  <nav class="sheet-tabs tabs">
+    <a class="item" data-tab="overview">Aperçu</a>
+    <a class="item" data-tab="skills">Compétences</a>
+    <a class="item" data-tab="magic">Pouvoirs & Rituels</a>
+    <a class="item" data-tab="gear">Équipement</a>
+    <!-- NOUVEL ONGLET -->
+    <a class="item" data-tab="effects">Effets</a>
+  </nav>
+
+  <section class="sheet-body">
+    <!-- Onglet APERÇU ---------------------------------------------------->
+    <div class="tab overview" data-tab="overview">
+      <div class="unicreon-feuille">
+        <div class="feuille-middle">
+          <section class="caracs">
+            <h3>Caractéristiques</h3>
+            {{#each caracKeys}}
+            <div class="carac-row">
+              <label>{{this.label}}</label>
+              <input type="text" name="system.attributes.{{this.key}}" value="{{lookup ../attributes this.key}}" />
+              {{#with (lookup ../caracMods this.key) as |mod|}}
+              {{#if mod}}
+              <span class="carac-mod {{mod.cssClass}}">{{mod.text}}</span>
+              {{/if}}
+              {{/with}}
+            </div>
+            {{/each}}
+          </section>
+
+          <section class="resources">
+            <h3>Notes rapides</h3>
+            <textarea name="system.notesCourtes">{{system.notesCourtes}}</textarea>
+          </section>
+        </div>
+
+        <div class="feuille-bottom">
+          <section class="bloc-tableau">
+            <header>
+              <span>Résumé compétences</span>
+            </header>
+            <table>
+              <tbody>
+                {{#each itemGroups.competences}}
+                <tr data-item-id="{{this.id}}" class="item-row">
+                  <td class="icon-cell">
+                    <img src="{{this.img}}" width="24" height="24" />
+                  </td>
+                  <td>
+                    <a class="item-open">{{this.name}}</a>
+                  </td>
+                  <td class="small">
+                    {{this.system.level}}
+                  </td>
+                  <td class="small">
+                    {{this.system.caracKey}}
+                  </td>
+                </tr>
+                {{/each}}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="bloc-tableau">
+            <header>
+              <span>Résumé équipements / objets</span>
+            </header>
+            <table>
+              <tbody>
+                {{#each itemGroups.gearItems}}
+                <tr data-item-id="{{this.id}}"
+                  class="item-row {{#if this.system.equippable}}{{#if this.system.equipped}}item-equipped{{/if}}{{/if}}">
+                  <td class="icon-cell">
+                    <img src="{{this.img}}" width="24" height="24" />
+                  </td>
+
+                  <td>
+                    <a class="item-open">{{this.name}}</a>
+                  </td>
+
+                  <td class="small">
+                    {{this.type}}
+                  </td>
+
+                  <td class="center equip-cell">
+                    {{#if this.system.equippable}}
+                    <a class="equip-toggle {{#if this.system.equipped}}equipped{{/if}}" data-action="toggle-equip"
+                      title="{{#if this.system.equipped}}Retirer l'objet{{else}}Équiper l'objet{{/if}}">
+                      {{#if this.system.equipped}}🟢{{else}}🔘{{/if}}
+                    </a>
+                    {{/if}}
+                  </td>
+                </tr>
+                {{/each}}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- Onglet COMPÉTENCES ----------------------------------------------->
+    <div class="tab" data-tab="skills">
+      <section class="bloc-tableau">
+        <header>
+          <span>Compétences</span>
+          <span class="hint">Glisser-déposer depuis un compendium pour ajouter</span>
+        </header>
+        <table class="item-list">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Nom & résumé</th>
+              <th>Niveau</th>
+              <th>Carac</th>
+              <th>Jet</th>
+              <th>Suppr.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each itemGroups.competences}}
+            <tr class="item-row" data-item-id="{{this.id}}">
+              <td class="icon-cell">
+                <img src="{{this.img}}" width="24" height="24" />
+              </td>
+
+              <td class="name-cell">
+                <div class="skill-name-row">
+                  <a class="item-open">{{this.name}}</a>
+                </div>
+
+                {{!-- Petit résumé : on réutilise system.description, clampé par le CSS --}}
+                {{#if this.system.description}}
+                <div class="skill-summary">
+                  {{{this.system.description}}}
+                </div>
+                {{/if}}
+              </td>
+
+              <td class="small">{{this.system.level}}</td>
+              <td class="small">{{this.system.caracKey}}</td>
+
+              <td class="center">
+                <a class="item-roll-competence" title="Lancer la compétence">🎲</a>
+              </td>
+              <td class="center row-actions">
+                <a data-action="item-delete" title="Supprimer">🗑️</a>
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Onglet MAGIE ------------------------------------------------------>
+    <div class="tab" data-tab="magic">
+      <section class="bloc-tableau">
+        <header>
+          <span>Pouvoirs & rituels</span>
+          <span class="hint">Pouvoirs, incantations, rituels, sorts…</span>
+        </header>
+        <table class="item-list">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Nom</th>
+              <th>Type</th>
+              <th>Détail</th>
+              <th>Utiliser</th>
+              <th>Suppr.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each itemGroups.magic}}
+            <tr class="item-row" data-item-id="{{this.id}}">
+              <td class="icon-cell">
+                <img src="{{this.img}}" width="24" height="24" />
+              </td>
+              <td class="name-cell">
+                <a class="item-open">{{this.name}}</a>
+              </td>
+              <td class="small">{{this.type}}</td>
+              <td class="small">{{this.system.summary}}</td>
+              <td class="center">
+                <a class="item-use-magic" title="Utiliser ce pouvoir / rituel">✨</a>
+              </td>
+              <td class="center row-actions">
+                <a data-action="item-delete" title="Supprimer">🗑️</a>
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Onglet ÉQUIPEMENT ------------------------------------------------->
+    <div class="tab" data-tab="gear">
+      <section class="bloc-tableau">
+        <header>
+          <span>Équipement & objets</span>
+          <span class="hint">Armes, armures, potions, objets…</span>
+        </header>
+        <table class="item-list">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Nom</th>
+              <th>Type</th>
+              <th>Notes</th>
+              <th>Suppr.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each itemGroups.gearItems}}
+            <tr class="item-row" data-item-id="{{this.id}}">
+              <td class="icon-cell">
+                <img src="{{this.img}}" width="24" height="24" />
+              </td>
+              <td class="name-cell">
+                <a class="item-open">{{this.name}}</a>
+              </td>
+              <td class="small">{{this.type}}</td>
+
+              {{!-- NOTES : HTML autorisé + texte clampé sur 2 lignes --}}
+              <td class="notes-cell">
+                <div class="item-notes">
+                  {{{this.system.description}}}
+                </div>
+              </td>
+
+              <td class="center row-actions">
+                <a data-action="item-delete" title="Supprimer">🗑️</a>
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Onglet EFFETS ----------------------------------------------------->
+    <div class="tab" data-tab="effects">
+      <section class="bloc-tableau effects-block">
+        <header>
+          <span>Effets (buffs / débuffs)</span>
+          <button type="button" class="effect-add-btn" data-action="effect-add">
+            + Effet manuel
+          </button>
+        </header>
+
+        <table class="effect-list">
+          <thead>
+            <tr>
+              <th>Effet / impact</th>
+              <th>Durée</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#if activeEffects.length}}
+            {{#each activeEffects}}
+            <tr class="effect-row" data-index="{{@index}}">
+              <td class="effect-main">
+                <div class="effect-name-row">
+                  <span class="effect-name">{{this.label}}</span>
+
+                  <span class="effect-pill {{#if this.isBuff}}buff{{/if}}{{#if this.isDebuff}}debuff{{/if}}">
+                    {{this.typeLabel}}
+                  </span>
+                </div>
+
+                {{#if this.targetLabel}}
+                <div class="effect-impact">
+                  <span class="effect-target">{{this.targetLabel}}</span>
+                  {{#if this.modText}}
+                  <span class="effect-mod {{#if this.isBuff}}positive{{/if}}{{#if this.isDebuff}}negative{{/if}}">
+                    {{this.modText}}
+                  </span>
+                  {{/if}}
+                </div>
+                {{/if}}
+              </td>
+
+              <td class="small">
+                <span class="effect-duration">{{this.durationLabel}}</span>
+              </td>
+
+              <td class="small">
+                {{this.description}}
+              </td>
+
+              <td class="center row-actions">
+                <a data-action="effect-tick" title="Réduire de 1 tour">-1</a>
+                <a data-action="effect-delete" title="Supprimer l'effet">🗑️</a>
+              </td>
+            </tr>
+            {{/each}}
+            {{else}}
+            <tr>
+              <td colspan="4" class="center">
+                Aucun effet actif. Clique sur « + Effet manuel » pour en ajouter un.
+              </td>
+            </tr>
+            {{/if}}
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </section>
+</form>

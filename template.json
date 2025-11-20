@@ -1,0 +1,234 @@
+{
+  "Actor": {
+    "types": [
+      "personnage",
+      "pnj"
+    ],
+    "templates": {
+      "core": {
+        "biography": "",
+        "story": "",
+        "identity": {
+          "metier": "",
+          "don": "",
+          "defaut": "",
+          "secret": ""
+        },
+        "attributes": {
+          "puissance": "d6",
+          "agilite": "d6",
+          "perception": "d6",
+          "volonte": "d6",
+          "pouvoir": "0"
+        },
+        "pools": {
+          "pv": {
+            "value": 12,
+            "max": 12
+          },
+          "pk": {
+            "value": 2,
+            "max": 2
+          },
+          "po": {
+            "value": 40
+          }
+        },
+        "carry": {
+          "base": 10
+        },
+        "progress": {
+          "level": 1,
+          "xp": 0,
+          "xpNext": 100
+        },
+        "notesCourtes": "",
+        "skills": [],
+        "gear": [],
+        "effects": []
+      }
+    },
+    "personnage": {
+      "templates": [
+        "core"
+      ]
+    },
+    "pnj": {
+      "templates": [
+        "core"
+      ]
+    }
+  },
+
+  "Item": {
+    "types": [
+      "potion",
+      "metier",
+      "incantation",
+      "pouvoir",
+      "rituel",
+      "sort",
+      "race",
+      "arme",
+      "armure",
+      "competence",
+      "objet"
+    ],
+    "templates": {
+      "base": {
+        "description": "",
+        "rarity": "commun",
+        "price": 0
+      }
+    },
+
+    "arme": {
+      "templates": [
+        "base"
+      ],
+      "damage": "4",
+      "reach": "contact",
+      "ranged": false,
+      "encumbrance": 1,
+      "capacityPe": 0,
+      "equippable": true,
+      "equipped": false,
+      "uses": 0,
+      "usesMax": 0,
+      "destroyOnUse": false,
+      "passiveTag": "",
+      "effectTag": ""
+    },
+
+    "armure": {
+      "templates": [
+        "base"
+      ],
+      "armor": 1,
+      "encumbrance": 1,
+      "capacityPe": 0,
+      "equippable": true,
+      "equipped": false,
+      "uses": 0,
+      "usesMax": 0,
+      "destroyOnUse": false,
+      "passiveTag": "",
+      "effectTag": ""
+    },
+
+    "objet": {
+      "templates": [
+        "base"
+      ],
+      "encumbrance": 0,
+      "capacityPe": 0,
+      "equippable": false,
+      "equipped": false,
+      "uses": 0,
+      "usesMax": 0,
+      "destroyOnUse": false,
+      "passiveTag": "",
+      "effectTag": ""
+    },
+
+    "potion": {
+      "templates": [
+        "base"
+      ],
+      "encumbrance": 0,
+      "capacityPe": 0,
+      "equippable": false,
+      "equipped": false,
+      "uses": 1,
+      "usesMax": 1,
+      "destroyOnUse": true,
+      "passiveTag": "",
+      "effectTag": ""
+    },
+
+    "incantation": {
+      "templates": [
+        "base"
+      ],
+      "stat": "volonte",
+      "epuisement": "",
+      "time": "",
+      "range": "",
+      "summary": "",
+      "effectTag": ""
+    },
+
+    "rituel": {
+      "templates": [
+        "base"
+      ],
+      "stat": "volonte",
+      "epuisement": "",
+      "time": "",
+      "range": "",
+      "summary": "",
+      "effectTag": ""
+    },
+
+    "pouvoir": {
+      "templates": [
+        "base"
+      ],
+      "level": "faible",
+      "stat": "pouvoir",
+      "time": "",
+      "epuisement": "",
+      "range": "",
+      "costPV": 0,
+      "summary": "",
+      "effectTag": ""
+    },
+
+    "sort": {
+      "templates": [
+        "base"
+      ],
+      "level": "faible",
+      "stat": "pouvoir",
+      "time": "",
+      "epuisement": "",
+      "range": "",
+      "costPV": 0,
+      "summary": "",
+      "effectTag": ""
+    },
+
+    "race": {
+      "templates": [
+        "base"
+      ],
+      "modifiers": {
+        "puissance": 0,
+        "agilite": 0,
+        "perception": 0,
+        "volonte": 0,
+        "pouvoir": 0,
+        "pv": 0
+      }
+    },
+
+    "metier": {
+      "templates": [
+        "base"
+      ],
+      "startingGear": "",
+      "startingSkills": "",
+      "income": 0
+    },
+
+    "competence": {
+      "templates": [
+        "base"
+      ],
+      "caracKey": "puissance",
+      "level": "d4",
+      "difficulty": 4,
+      "costPk": 0
+    }
+  }
+}

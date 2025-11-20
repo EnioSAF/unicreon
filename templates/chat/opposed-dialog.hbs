@@ -1,0 +1,40 @@
+
+<form>
+  <div class="form-group">
+    <label>Attaquant — Carac</label>
+    <select name="attCarac">
+      <option value="puissance">Puissance</option>
+      <option value="agilite">Agilité</option>
+      <option value="perception">Perception</option>
+      <option value="volonte">Volonté</option>
+      <option value="pouvoir">Pouvoir</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Attaquant — Dé de compétence (optionnel)</label>
+    <input name="attSkill" placeholder="0|d4|d6|d8|d10|d12"/>
+  </div>
+  <div class="form-group">
+    <label>PK Attaquant</label>
+    <input type="number" name="pkA" min="0" value="0"/>
+  </div>
+  <hr/>
+  <div class="form-group">
+    <label>Défenseur — Carac</label>
+    <select name="defCarac">
+      <option value="puissance">Puissance</option>
+      <option value="agilite">Agilité</option>
+      <option value="perception">Perception</option>
+      <option value="volonte">Volonté</option>
+      <option value="pouvoir">Pouvoir</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Défenseur — Dé de compétence (optionnel)</label>
+    <input name="defSkill" placeholder="0|d4|d6|d8|d10|d12"/>
+  </div>
+  <div class="form-group">
+    <label>PK Défenseur</label>
+    <input type="number" name="pkD" min="0" value="0"/>
+  </div>
+</form>

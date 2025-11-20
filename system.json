@@ -1,0 +1,42 @@
+{
+  "id": "unicreon",
+  "title": "Unicreon (FVTT v12 system)",
+  "version": "0.3.0",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12"
+  },
+  "esmodules": [
+    "module/unicreon.js",
+    "module/sheets/actor-sheet.js",
+    "module/sheets/item-sheet.js",
+    "module/sheets/competence-sheet.js"
+  ],
+  "styles": [
+    "styles/unicreon.css"
+  ],
+  "languages": [
+    {
+      "lang": "fr",
+      "name": "Français",
+      "path": "lang/fr.json"
+    }
+  ],
+  "authors": [
+    {
+      "name": "Enio",
+      "url": ""
+    }
+  ],
+  "flags": {
+    "coreTranslation": "fr"
+  },
+  "race": {
+    "type": "String",
+    "default": ""
+  },
+  "metier": {
+    "type": "String",
+    "default": ""
+  }
+}

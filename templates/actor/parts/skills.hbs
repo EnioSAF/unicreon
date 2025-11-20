@@ -1,0 +1,20 @@
+
+<div class="panel"><h2>Compétences</h2>
+  <table class="skills">
+    <thead><tr><th>Nom</th><th>Dé</th><th></th></tr></thead>
+    <tbody>
+      {{#each system.skills as |s i|}}
+      <tr>
+        <td><input type="text" name="system.skills.{{i}}.name" value="{{s.name}}"/></td>
+        <td><select name="system.skills.{{i}}.die">
+          {{#each ../../diceOptions as |opt|}}
+            {{#unless (eq opt "0")}}<option value="{{opt}}" {{optionSel s.die opt}}>{{opt}}</option>{{/unless}}
+          {{/each}}
+        </select></td>
+        <td><a data-index="{{i}}" data-action="del-skill"><i class="fas fa-trash"></i></a></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  <button type="button" data-action="add-skill"><i class="fas fa-plus"></i> Ajouter</button>
+</div>

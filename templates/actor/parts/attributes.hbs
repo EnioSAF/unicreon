@@ -1,0 +1,19 @@
+
+<div class="panel"><h2>Caractéristiques</h2>
+  <table class="caracs">
+    {{#each system.attributes as |val key|}}
+    <tr>
+      <th>{{capitalize key}}</th>
+      <td>
+        <select name="system.attributes.{{key}}">
+          {{#each ../diceOptions as |opt|}}
+            <option value="{{opt}}" {{optionSel val opt}}>{{opt}}</option>
+          {{/each}}
+        </select>
+      </td>
+      <td class="faces">{{dieFaces val}} faces</td>
+    </tr>
+    {{/each}}
+  </table>
+  <small>Les caracs utilisent d4…d12 (Pouvoir peut être 0).</small>
+</div>
