@@ -1,11 +1,14 @@
 {
   "id": "unicreon",
-  "title": "Unicreon (FVTT v12 system)",
+  "title": "Unicreon (FVTT v13 system)",
+  "description": "Système maison Unicreon pour Foundry VTT v13.",
   "version": "0.3.0",
+
   "compatibility": {
-    "minimum": "12",
-    "verified": "12"
+    "minimum": "13",
+    "verified": "13"
   },
+
   "esmodules": [
     "module/unicreon.js",
     "module/sheets/actor-sheet.js",
@@ -13,9 +16,11 @@
     "module/sheets/competence-sheet.js",
     "module/sheets/spell-sheet.js"
   ],
+
   "styles": [
     "styles/unicreon.css"
   ],
+
   "languages": [
     {
       "lang": "fr",
@@ -23,89 +28,15 @@
       "path": "lang/fr.json"
     }
   ],
+
   "authors": [
     {
       "name": "Enio",
       "url": ""
     }
   ],
+
   "flags": {
     "coreTranslation": "fr"
-  },
-  "Actor": {
-    "types": [
-      "personnage",
-      "pnj"
-    ],
-    "templates": {
-      "base": {
-        "story": "",
-        "race": "",
-        "metier": "",
-        "notesCourtes": "",
-        "attributes": {
-          "puissance": "d6",
-          "agilite": "d6",
-          "perception": "d6",
-          "volonte": "d6",
-          "pouvoir": "d6"
-        },
-        "pools": {
-          "pv": {
-            "value": 10,
-            "max": 10
-          },
-          "pk": {
-            "value": 1,
-            "max": 1
-          },
-          "po": {
-            "value": 0
-          }
-        },
-        "carry": {
-          "base": 10
-        },
-        "progress": {
-          "level": 1,
-          "xp": 0,
-          "xpNext": 100
-        },
-        "effects": []
-      }
-    },
-    "race": {
-      "type": "String",
-      "default": ""
-    },
-    "metier": {
-      "type": "String",
-      "default": ""
-    },
-    "Item": {
-      "types": [
-        "potion",
-        "metier",
-        "incantation",
-        "pouvoir",
-        "race",
-        "arme",
-        "armure",
-        "competence",
-        "objet",
-        "spell"
-      ],
-      "spell": {
-        "templates": [
-          "base"
-        ],
-        "stat": "pouvoir",
-        "time": "",
-        "epuisement": "",
-        "costPV": 0,
-        "effectTag": "",
-        "summary": ""
-      }
-    }
   }
 }

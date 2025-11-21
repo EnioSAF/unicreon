@@ -8,42 +8,6 @@
 // FICHE DE COMPÉTENCE
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Helpers Handlebars globaux
-// ---------------------------------------------------------------------------
-Hooks.once("init", () => {
-  console.log("Unicreon | register Handlebars helpers (from unicreon.js)");
-
-  const hb = globalThis.Handlebars || window.Handlebars;
-  if (!hb) {
-    console.error("Unicreon | Handlebars global introuvable");
-    return;
-  }
-
-  // Capitalise la première lettre
-  hb.registerHelper("capitalize", s =>
-    (s ?? "").charAt(0).toUpperCase() + (s ?? "").slice(1)
-  );
-
-  // Pour les <option> : "selected" si a == b
-  hb.registerHelper("optionSel", (a, b) => (a == b ? "selected" : ""));
-
-  // "d6" -> 6, "d10" -> 10, "0" -> 0
-  hb.registerHelper("dieFaces", d =>
-    (!d || d === "0") ? 0 : Number(String(d).replace("d", ""))
-  );
-
-  // Incrémente un index (pour les #each)
-  hb.registerHelper("inc", n => Number(n) + 1);
-
-  // Égalité stricte
-  hb.registerHelper("eq", (a, b) => a === b);
-
-  // a || b
-  hb.registerHelper("or", (a, b) => Boolean(a || b));
-});
-
-
 class UnicreonCompetenceSheet extends ItemSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -378,4 +342,39 @@ Hooks.once("ready", () => {
   game.unicreon = Object.assign({}, game.unicreon || {}, api);
 
   console.log("Unicreon | API exposée :", game.unicreon);
+});
+
+// ---------------------------------------------------------------------------
+// Helpers Handlebars globaux
+// ---------------------------------------------------------------------------
+Hooks.once("init", () => {
+  console.log("Unicreon | register Handlebars helpers (from unicreon.js)");
+
+  const hb = globalThis.Handlebars || window.Handlebars;
+  if (!hb) {
+    console.error("Unicreon | Handlebars global introuvable");
+    return;
+  }
+
+  // Capitalise la première lettre
+  hb.registerHelper("capitalize", s =>
+    (s ?? "").charAt(0).toUpperCase() + (s ?? "").slice(1)
+  );
+
+  // Pour les <option> : "selected" si a == b
+  hb.registerHelper("optionSel", (a, b) => (a == b ? "selected" : ""));
+
+  // "d6" -> 6, "d10" -> 10, "0" -> 0
+  hb.registerHelper("dieFaces", d =>
+    (!d || d === "0") ? 0 : Number(String(d).replace("d", ""))
+  );
+
+  // Incrémente un index (pour les #each)
+  hb.registerHelper("inc", n => Number(n) + 1);
+
+  // Égalité stricte
+  hb.registerHelper("eq", (a, b) => a === b);
+
+  // a || b
+  hb.registerHelper("or", (a, b) => Boolean(a || b));
 });

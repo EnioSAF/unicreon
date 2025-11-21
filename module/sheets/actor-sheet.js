@@ -117,6 +117,13 @@ class UnicreonActor extends Actor {
       }
     }
 
+    // S'assurer que chaque carac a AU MOINS un bonus 0
+    const allCaracs = ["puissance", "agilite", "perception", "volonte", "pouvoir"];
+    for (const k of allCaracs) {
+      if (!Object.prototype.hasOwnProperty.call(caracBonusValues, k)) {
+        caracBonusValues[k] = 0;
+      }
+    }
 
     const caracMods = {};
     for (const [k, v] of Object.entries(caracBonusValues)) {
@@ -881,10 +888,13 @@ export class UnicreonActorSheet extends ActorSheet {
 Hooks.once("init", () => {
   console.log("Unicreon | init Unicreon system");
 
-  // On dit à Foundry : utilise notre Actor custom
   CONFIG.Actor.documentClass = UnicreonActor;
 
-  // Fiche d’actor custom
+  CONFIG.Combat.initiative = {
+    formula: "@attributes.agilite + @derived.caracBonusValues.agilite",
+    decimals: 0
+  };
+
   Actors.unregisterSheet("core", ActorSheet);
   Actors.registerSheet("unicreon", UnicreonActorSheet, {
     types: ["personnage", "pnj"],
