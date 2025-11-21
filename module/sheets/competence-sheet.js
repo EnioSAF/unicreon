@@ -1,9 +1,12 @@
+// systems/unicreon/module/sheets/competence-sheet.js
+// Fiche de compétence Unicreon (jets avec avantage / désavantage)
+
 export class UnicreonCompetenceSheet extends ItemSheet {
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
-      classes: ["unicreon", "sheet", "competence"],
-      width: 580,
-      height: 640,
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["unicreon", "sheet", "item", "competence"],
+      width: 600,
+      height: 500,
       tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body" }]
     });
   }
@@ -12,25 +15,12 @@ export class UnicreonCompetenceSheet extends ItemSheet {
     return `systems/${game.system.id}/templates/item/competence-sheet.hbs`;
   }
 
-  getData(options) {
+  getData(options = {}) {
     const data = super.getData(options);
+    const item = data.item ?? data.document ?? this.item;
 
-    data.config = {
-      dice: { d4: "d4", d6: "d6", d8: "d8", d10: "d10", d12: "d12" },
-      characteristics: {
-        puissance: "Puissance",
-        agilite: "Agilité",
-        perception: "Perception",
-        volonte: "Volonté"
-      },
-      skillTypes: {
-        physique: "Physique",
-        sociale: "Sociale",
-        connaissance: "Connaissance",
-        survie: "Survie",
-        divers: "Divers"
-      }
-    };
+    data.item = item;
+    data.system = item.system ?? item.data?.data ?? item.data?.system;
 
     return data;
   }
@@ -38,17 +28,62 @@ export class UnicreonCompetenceSheet extends ItemSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // 🔥 Utilisation d'une compétence depuis sa fiche
-    html.find(".competence-roll").on("click", async (ev) => {
+    html.find(".competence-roll").on("click", async ev => {
       ev.preventDefault();
 
-      if (!game.unicreon?.rollCompetence) {
-        ui.notifications.warn("Le système Unicreon n'a pas chargé son helper de jet.");
-        return;
+      const item = this.item;
+      const actor = item.parent;
+      if (!actor) {
+        return ui.notifications.warn("Cette compétence doit être sur un acteur.");
       }
 
-      // ⤵️ appel unique au helper global
-      return game.unicreon.rollCompetence(this.item);
+      const die = item.system.level || "d6";
+      const label = item.name;
+
+      const mode = await Dialog.prompt({
+        title: `Jet — ${label}`,
+        content: `
+          <form>
+            <div class="form-group">
+              <label>Mode :</label>
+              <select name="mode">
+                <option value="normal">Normal</option>
+                <option value="adv">Avantage</option>
+                <option value="disadv">Désavantage</option>
+              </select>
+            </div>
+          </form>
+        `,
+        label: "Lancer",
+        callback: html => html.find("[name='mode']").val()
+      });
+
+      if (!mode) return;
+
+      const facesMatch = String(die).match(/(\d+)/);
+      const faces = facesMatch ? facesMatch[1] : "6";
+
+      let formula;
+      if (mode === "adv") formula = `2d${faces}kh1`;
+      else if (mode === "disadv") formula = `2d${faces}kl1`;
+      else formula = `1d${faces}`;
+
+      const roll = await (new Roll(formula)).roll({ async: true });
+
+      roll.toMessage({
+        speaker: ChatMessage.getSpeaker({ actor }),
+        flavor: `<strong>${label}</strong> (${mode})`
+      });
     });
   }
 }
+
+// Enregistrer cette sheet seulement pour les "competence".
+Hooks.once("init", () => {
+  console.log("Unicreon | registering UnicreonCompetenceSheet");
+
+  Items.registerSheet("unicreon", UnicreonCompetenceSheet, {
+    types: ["competence"],
+    makeDefault: true
+  });
+});

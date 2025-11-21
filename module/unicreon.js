@@ -8,6 +8,42 @@
 // FICHE DE COMPÉTENCE
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Helpers Handlebars globaux
+// ---------------------------------------------------------------------------
+Hooks.once("init", () => {
+  console.log("Unicreon | register Handlebars helpers (from unicreon.js)");
+
+  const hb = globalThis.Handlebars || window.Handlebars;
+  if (!hb) {
+    console.error("Unicreon | Handlebars global introuvable");
+    return;
+  }
+
+  // Capitalise la première lettre
+  hb.registerHelper("capitalize", s =>
+    (s ?? "").charAt(0).toUpperCase() + (s ?? "").slice(1)
+  );
+
+  // Pour les <option> : "selected" si a == b
+  hb.registerHelper("optionSel", (a, b) => (a == b ? "selected" : ""));
+
+  // "d6" -> 6, "d10" -> 10, "0" -> 0
+  hb.registerHelper("dieFaces", d =>
+    (!d || d === "0") ? 0 : Number(String(d).replace("d", ""))
+  );
+
+  // Incrémente un index (pour les #each)
+  hb.registerHelper("inc", n => Number(n) + 1);
+
+  // Égalité stricte
+  hb.registerHelper("eq", (a, b) => a === b);
+
+  // a || b
+  hb.registerHelper("or", (a, b) => Boolean(a || b));
+});
+
+
 class UnicreonCompetenceSheet extends ItemSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -84,30 +120,6 @@ class UnicreonCompetenceSheet extends ItemSheet {
     });
   }
 }
-
-// ---------------------------------------------------------------------------
-// INIT : helpers + enregistrement de la sheet COMPÉTENCE
-// ---------------------------------------------------------------------------
-
-Hooks.once("init", () => {
-  console.log("Unicreon | init core");
-
-  Handlebars.registerHelper("capitalize", s =>
-    (s || "").charAt(0).toUpperCase() + (s || "").slice(1)
-  );
-  Handlebars.registerHelper("optionSel", (a, b) => a == b ? "selected" : "");
-  Handlebars.registerHelper("dieFaces", d =>
-    (!d || d === "0") ? 0 : Number(String(d).replace("d", ""))
-  );
-  Handlebars.registerHelper("inc", n => Number(n) + 1);
-  Handlebars.registerHelper("eq", (a, b) => a === b);
-  Handlebars.registerHelper("or", (a, b) => Boolean(a || b));
-
-  Items.registerSheet("unicreon", UnicreonCompetenceSheet, {
-    types: ["competence"],
-    makeDefault: true
-  });
-});
 
 // ============================================================================
 // PARSING DES TAGS D’EFFETS
@@ -287,6 +299,13 @@ async function useItem(item) {
   }
 
   const sys = item.system || {};
+
+  // Coût en PV du sort (si > 0)
+  if (item.type === "spell" && sys.costPV > 0) {
+    const actorPV = targetActor.system?.pools?.pv;
+    const newVal = Math.max(0, Number(actorPV.value) - Number(sys.costPV));
+    await targetActor.update({ "system.pools.pv.value": newVal });
+  }
 
   // Cible : token ciblé > token contrôlé > porteur lui-même
   const targets = Array.from(game.user?.targets ?? []);
