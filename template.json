@@ -33,6 +33,10 @@
             "value": 2,
             "max": 2
           },
+          "pm": {
+            "value": 4,
+            "max": 4
+          },
           "po": {
             "value": 40
           }

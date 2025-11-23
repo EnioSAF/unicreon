@@ -852,9 +852,11 @@ export class UnicreonActorSheet extends ActorSheet {
       content: chatContent
     });
 
-    await roll.toMessage({
+    await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `${this.actor.name} — Test Unicreon`
+      flavor: `${this.actor.name} — Test Unicreon`,
+      rolls: [roll],
+      type: CONST.CHAT_MESSAGE_TYPES.ROLL
     });
   }
 

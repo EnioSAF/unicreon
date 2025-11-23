@@ -778,3 +778,126 @@
 .unicreon-actor-sheet .pool-mod.negative {
   color: #b02020;
 }
+
+/* =======================================================================
+   UNICREON – Carte de passe d'armes dans le chat
+   ======================================================================= */
+
+.chat-message .unicreon-attack-card {
+  /* bloc général */
+  margin: 0.25rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: radial-gradient(
+    circle at top left,
+    #f9f4ea 0%,
+    #f0e7d7 40%,
+    #e7ddcc 100%
+  );
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  line-height: 1.35;
+  color: #2a1d12;
+}
+
+/* Enlève le gros margin interne par défaut des messages Foundry */
+.chat-message .message-content .unicreon-attack-card {
+  margin: -0.25rem -0.25rem 0 -0.25rem;
+}
+
+/* ------------------------------------------------------------------- */
+/* Header                                                              */
+/* ------------------------------------------------------------------- */
+
+.unicreon-attack-card .u-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.unicreon-attack-card .u-header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.unicreon-attack-card .u-header .u-sub {
+  margin-top: 0.15rem;
+  font-size: 11px;
+  color: #6a5140;
+}
+
+/* ------------------------------------------------------------------- */
+/* Sections                                                            */
+/* ------------------------------------------------------------------- */
+
+.unicreon-attack-card .u-section {
+  margin-bottom: 0.35rem;
+  padding-left: 0.45rem;
+  border-left: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.unicreon-attack-card .u-section:last-of-type {
+  margin-bottom: 0.45rem;
+}
+
+.unicreon-attack-card .u-section h3 {
+  margin: 0 0 0.15rem 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.unicreon-attack-card .u-section p {
+  margin: 0.05rem 0;
+}
+
+/* Résultat mis un peu plus en avant */
+.unicreon-attack-card .u-section.u-result {
+  border-left-color: rgba(120, 52, 18, 0.6);
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 4px;
+  padding-top: 0.2rem;
+  padding-bottom: 0.25rem;
+}
+
+/* ------------------------------------------------------------------- */
+/* Badges succès / échec                                              */
+/* ------------------------------------------------------------------- */
+
+.unicreon-attack-card .u-ok,
+.unicreon-attack-card .u-fail {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.unicreon-attack-card .u-ok {
+  background: rgba(46, 125, 50, 0.1);
+  color: #1b5e20;
+  border: 1px solid rgba(46, 125, 50, 0.35);
+}
+
+.unicreon-attack-card .u-fail {
+  background: rgba(183, 28, 28, 0.08);
+  color: #b71c1c;
+  border: 1px solid rgba(183, 28, 28, 0.35);
+}
+
+/* ------------------------------------------------------------------- */
+/* Footer                                                              */
+/* ------------------------------------------------------------------- */
+
+.unicreon-attack-card .u-footer {
+  border-top: 1px dashed rgba(0, 0, 0, 0.15);
+  padding-top: 0.25rem;
+  margin-top: 0.1rem;
+  font-size: 11px;
+  color: #5a4334;
+  text-align: right;
+}
