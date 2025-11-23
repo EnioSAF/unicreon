@@ -5,7 +5,125 @@
 // - Passe d’armes générique à partir d’un item offensif (game.unicreon.resolveAttackFromItem)
 // ============================================================================
 
+// ---------------------------------------------------------------------------
+// Statuts visuels (icônes Foundry) – constantes
+// ---------------------------------------------------------------------------
 
+// Identifiants internes des statuts Foundry (remplis à l'init)
+const UNICREON_STATUS_IDS = {
+  defensePhysical: null,
+  defenseMental: null,
+  dead: null
+};
+
+// Labels logiques utilisés partout
+const UNICREON_STATUS_LABELS = {
+  defensePhysical: "unicreon-defense-physical",
+  defenseMental: "unicreon-defense-mental",
+  dead: "dead"
+};
+
+Hooks.once("init", () => {
+  console.log("Unicreon | register Handlebars helpers + status (from unicreon.js)");
+
+  // Handlebars
+  const hb =
+    foundry?.applications?.api?.Handlebars ??
+    globalThis.Handlebars ??
+    window.Handlebars;
+
+  if (!hb) {
+    console.error("Unicreon | Handlebars introuvable");
+    return;
+  }
+
+  hb.registerHelper("capitalize", s => (s ?? "").charAt(0).toUpperCase() + (s ?? "").slice(1));
+  hb.registerHelper("optionSel", (a, b) => (a == b ? "selected" : ""));
+  hb.registerHelper("dieFaces", d => (!d || d === "0") ? 0 : Number(String(d).replace("d", "")));
+  hb.registerHelper("inc", n => Number(n) + 1);
+  hb.registerHelper("eq", (a, b) => a === b);
+  hb.registerHelper("or", (a, b) => Boolean(a || b));
+
+  // --- Status Effects ---
+  const statusList = CONFIG.statusEffects ?? [];
+
+  const findByLabel = (regex) =>
+    statusList.find(e => String(e.label ?? e.name ?? e.id ?? "").toLowerCase().match(regex));
+
+  const ensureStatus = (id, label, icon) => {
+    let eff = statusList.find(e => e.id === id);
+    if (!eff) {
+      eff = { id, label, icon };
+      statusList.push(eff);
+    }
+    return eff;
+  };
+
+  const physEff =
+    findByLabel(/protection sacr[eé]/i) ||
+    ensureStatus("unicreon-defense-physical", "Défense physique", "icons/svg/shield.svg");
+
+  const mentalEff =
+    findByLabel(/protection magique/i) ||
+    ensureStatus("unicreon-defense-mental", "Défense magique", "icons/svg/aura.svg");
+
+  const deadEff =
+    findByLabel(/mort|dead/i) ||
+    ensureStatus("unicreon-dead", "Mort", "icons/svg/skull.svg");
+
+  // REMPLIR LES IDS OFFICIELS
+  UNICREON_STATUS_IDS.defensePhysical = physEff.id;
+  UNICREON_STATUS_IDS.defenseMental = mentalEff.id;
+  UNICREON_STATUS_IDS.dead = deadEff.id;
+
+  console.log("Unicreon | Status IDs :", UNICREON_STATUS_IDS);
+});
+
+// ---------------------------------------------------------------------------
+// Fonctions pour retrouver / appliquer les statuts
+// ---------------------------------------------------------------------------
+
+function unicreonFindStatusEntry(key) {
+  if (!CONFIG.statusEffects) return null;
+
+  // D'abord : on tente avec l'id qu'on a stocké
+  const id = UNICREON_STATUS_IDS[key];
+  if (id) {
+    const byId = CONFIG.statusEffects.find(e => e.id === id);
+    if (byId) return byId;
+  }
+
+  // Sinon on tente avec le "label" de secours
+  const wanted = UNICREON_STATUS_LABELS[key];
+  if (!wanted) return null;
+
+  return CONFIG.statusEffects.find(e =>
+    e.id === wanted ||
+    e.label === wanted ||
+    e.name === wanted
+  ) || null;
+}
+
+// ============================================================================
+// HOOK : mise à jour icône "Mort" en fonction des PV
+// ============================================================================
+
+Hooks.on("updateActor", (actor, changed, options, userId) => {
+  // On ne s'intéresse qu'aux changements de PV
+  const hasPvChange =
+    foundry.utils.getProperty(changed, "system.pools.pv.value") !== undefined ||
+    foundry.utils.getProperty(changed, "system.pools.pv.max") !== undefined;
+
+  if (!hasPvChange) return;
+
+  const sys = actor.system ?? {};
+  const pv = sys.pools?.pv ?? {};
+  const val = Number(pv.value ?? 0);
+  const dead = val <= 0;
+
+  // Icône "Mort" (non overlay, tu peux passer overlay: true si tu veux la grosse icône)
+  unicreonSetStatus(actor, "dead", dead, { overlay: false });
+});
 
 // ============================================================================
 // PARSING DES TAGS D’EFFETS
@@ -422,8 +540,6 @@ Hooks.on("preUpdateToken", (tokenDoc, change, options, userId) => {
   spendMove(actor, cost);
 });
 
-
-
 // ============================================================================
 // UNICREON – HELPERS PASSE D'ARMES
 // ============================================================================
@@ -488,7 +604,96 @@ async function unicreonRollTest({ actor, caracKey, baseDiff, pkSpent, mode, labe
   return { actor, caracKey, label, roll, faces, diff, success, mode: mode || "normal" };
 }
 
+// ============================================================================
+// UNICREON – JET DE COMPETENCE STANDARD
+// ============================================================================
 
+async function rollCompetence(item) {
+  const actor = item.actor ?? item.parent;
+  if (!actor) {
+    ui.notifications.warn("Cette compétence doit être sur un acteur.");
+    return;
+  }
+
+  const name = (item.name || "").toLowerCase();
+
+  // -------------------------------------------------------------
+  // 0) Cas spécial : Résistance physique / mentale = posture
+  //    (aucun jet, juste la posture + icône + message + action)
+  // -------------------------------------------------------------
+  if (game.unicreon?.useDefenseStance &&
+    (name.includes("résistance physique") || name.includes("resistance physique") ||
+      name.includes("résistance mentale") || name.includes("resistance mentale"))) {
+
+    return game.unicreon.useDefenseStance(item);
+  }
+
+  // -------------------------------------------------------------
+  // 1) Jet standard : Carac + Compétence (comme avant)
+  // -------------------------------------------------------------
+  const sys = item.system || {};
+  const caracKey = sys.caracKey || "puissance";
+
+  const caracDie = actor.system?.attributes?.[caracKey] || "d6";
+  const compDie = sys.level || "d6";
+
+  const caracFacesMatch = String(caracDie).match(/(\d+)/);
+  const compFacesMatch = String(compDie).match(/(\d+)/);
+
+  const caracFaces = caracFacesMatch ? Number(caracFacesMatch[1]) : 6;
+  const compFaces = compFacesMatch ? Number(compFacesMatch[1]) : 6;
+
+  // Choix du mode (normal / avantage / désavantage) pour la compétence
+  const mode = await Dialog.prompt({
+    title: `${actor.name} — ${item.name}`,
+    content: `
+      <form>
+        <div class="form-group">
+          <label>Mode :</label>
+          <select name="mode">
+            <option value="normal">Normal</option>
+            <option value="adv">Avantage</option>
+            <option value="disadv">Désavantage</option>
+          </select>
+        </div>
+      </form>
+    `,
+    label: "Lancer",
+    callback: html => html.find("[name='mode']").val()
+  });
+
+  if (!mode) return;
+
+  // Carac = toujours 1 dé
+  const caracRoll = await (new Roll(`1d${caracFaces}`)).evaluate();
+
+  // Compétence = selon le mode
+  let compFormula;
+  if (mode === "adv") compFormula = `2d${compFaces}kh1`;
+  else if (mode === "disadv") compFormula = `2d${compFaces}kl1`;
+  else compFormula = `1d${compFaces}`;
+
+  const compRoll = await (new Roll(compFormula)).evaluate();
+
+  // Résultat final = max(carac, compétence)
+  const final = Math.max(caracRoll.total, compRoll.total);
+
+  const caracLabel = unicreonCaracLabel(caracKey);
+
+  const content = `
+    <div class="unicreon-card">
+      <h2>${actor.name} — ${item.name}</h2>
+      <p><strong>Carac (${caracLabel}) :</strong> 1d${caracFaces} → ${caracRoll.total}</p>
+      <p><strong>Compétence (d${compFaces}, ${mode}) :</strong> ${compRoll.total}</p>
+      <p><strong>Résultat gardé :</strong> ${final}</p>
+    </div>
+  `;
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content
+  });
+}
 
 // ============================================================================
 // UNICREON – RESOLUTION D'ATTAQUE A PARTIR D'UN ITEM
@@ -539,6 +744,8 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   let difficulty = atkCfg.baseDifficulty ?? 4;
   let damageStr = (atkCfg.damage || "1").toString().trim();
   const usePK = atkCfg.usePK !== false;
+  // Type d'attaque : par défaut, tout ce qui n'est pas marqué "spell" est physique
+  const attackType = atkCfg.type || "melee";   // "melee" | "ranged" | "spell" (plus tard)
 
   const attackerPK = unicreonGetPK(actor);
   const defenderPK = unicreonGetPK(defender);
@@ -628,12 +835,34 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     label: `Attaque (${unicreonCaracLabel(attCarac)})`
   });
 
+  // Posture défensive éventuelle (Résistance physique / mentale)
+  let defMode = "normal";
+  let defBuffText = "";
+
+  const stance = await consumeDefenseStance({
+    defender,
+    attacker: actor,
+    attackType
+  });
+
+  if (stance) {
+    defMode = stance.mode || "adv";
+
+    if (stance.type === "mental") {
+      defCarac = "pouvoir";       // Défense magique → Pouvoir
+      defBuffText = " (Résistance mentale — Pouvoir)";
+    } else {
+      defCarac = "puissance";     // Défense physique → Puissance
+      defBuffText = " (Résistance physique — Puissance)";
+    }
+  }
+
   const defTest = await unicreonRollTest({
     actor: defender,
     caracKey: defCarac,
     baseDiff: difficulty,
     pkSpent: pkD,
-    mode: "normal",
+    mode: defMode,
     label: `Défense (${unicreonCaracLabel(defCarac)})`
   });
 
@@ -671,7 +900,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   await spendActions(actor, 1);
   const actionsLeftAfter = getActionsLeft(actor);
 
-  // ------------------------ Cartes de JET individuelles -----------------
+  // Cartes de jets
   await attTest.roll.toMessage({
     speaker: ChatMessage.getSpeaker({ token: attackerToken ?? null, actor }),
     flavor: `<strong>Jet d'attaque</strong> — ${actor.name} (${unicreonCaracLabel(attCarac)})`
@@ -679,13 +908,8 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
 
   await defTest.roll.toMessage({
     speaker: ChatMessage.getSpeaker({ token: targetToken ?? null, actor: defender }),
-    flavor: `<strong>Jet de défense</strong> — ${defender.name} (${unicreonCaracLabel(defCarac)})`
+    flavor: `<strong>Jet de défense</strong> — ${defender.name} (${unicreonCaracLabel(defCarac)}${defBuffText})`
   });
-
-
-  // ------------------------ Carte de résultat en HTML propre ----------------
-
-  // ------------------------ Carte de RÉSUMÉ de la passe d'armes ---------
 
   const resultText =
     winner === "attacker" && dmg > 0
@@ -695,8 +919,27 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
         : winner === "defender"
           ? `${defender.name} se protège efficacement. Aucun dégât.`
           : `Aucun succès clair. À la MJ d’interpréter.`;
+  let defenseStanceText = "";
+  if (stance) {
+    const labelStance = stance.type === "mental"
+      ? "Résistance mentale"
+      : "Résistance physique";
 
-  // Carte HTML (tu peux garder la version précédente, ou celle-là)
+    defenseStanceText = `
+      <section class="u-section u-stance">
+        <h3>Posture défensive</h3>
+        <p>${defender.name} bénéficie de <strong>${labelStance}</strong> pour ce jet de défense (avantage).</p>
+        <p>La posture est maintenant <strong>consommée</strong> et n'appliquera plus de bonus jusqu'à ce qu'elle soit réactivée.</p>
+      </section>
+    `;
+  } else {
+    defenseStanceText = `
+      <section class="u-section u-stance">
+        <h3>Posture défensive</h3>
+        <p>Aucune posture défensive active n'était en place.</p>
+      </section>
+    `;
+  }
   const html = `
 <div class="unicreon-attack-card">
 
@@ -719,7 +962,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
 
   <section class="u-section">
     <h3>Jet de défense</h3>
-    <p><strong>${defender.name}</strong> — ${unicreonCaracLabel(defCarac)} (d${defTest.faces})</p>
+    <p><strong>${defender.name}</strong> — ${unicreonCaracLabel(defCarac)} (d${defTest.faces}, ${defTest.mode}${defBuffText})</p>
     <p>Diff : <strong>${defTest.diff}</strong> — Jet : <strong>${defTest.roll.total}</strong>
        → <span class="u-${defTest.success ? "ok" : "fail"}">
          ${defTest.success ? "Succès" : "Échec"}
@@ -731,6 +974,8 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     <h3>Résultat</h3>
     <p>${resultText}</p>
   </section>
+
+  ${defenseStanceText}
 
   <footer class="u-footer">
     Actions restantes pour <strong>${actor.name}</strong> : ${actionsLeftAfter}
@@ -746,6 +991,188 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   });
 }
 
+// ============================================================================
+// Helper : appliquer / enlever un statut de token sur tous les tokens d'un acteur
+// ============================================================================
+
+async function unicreonSetStatus(actor, key, active, { overlay = false } = {}) {
+  if (!actor) return;
+
+  const entry = unicreonFindStatusEntry(key);
+  if (!entry) {
+    console.warn(`Unicreon | statut introuvable pour "${key}" (label: ${UNICREON_STATUS_LABELS[key]})`);
+    return;
+  }
+
+  const statusId = entry.id || entry.icon;
+  if (!statusId) return;
+
+  return unicreonSetStatusOnActor(actor, statusId, active, { overlay });
+}
+
+async function unicreonSetStatusOnActor(actor, statusId, active, { overlay = false } = {}) {
+  if (!actor) return;
+
+  const options = { overlay };
+  if (typeof active === "boolean") options.active = !!active;
+
+  // Si l'Actor sait gérer directement les statuts (v12+)
+  if (typeof actor.toggleStatusEffect === "function") {
+    try {
+      await actor.toggleStatusEffect(statusId, options);
+      return;
+    } catch (err) {
+      console.error("Unicreon | actor.toggleStatusEffect a échoué", statusId, err);
+    }
+  }
+
+  // Fallback : on passe par les tokens actifs
+  for (const token of actor.getActiveTokens() ?? []) {
+    try {
+      if (typeof token.toggleStatusEffect === "function") {
+        await token.toggleStatusEffect(statusId, options);
+      }
+    } catch (err) {
+      console.error("Unicreon | Impossible d’appliquer le statut sur un token", statusId, err);
+    }
+  }
+}
+
+// ============================================================================
+// UNICREON – DEFENSE ACTIVE (Résistance physique / mentale)
+// ============================================================================
+
+const DEFENSE_STANCE_FLAG = "defenseStance";
+
+/**
+ * Pose une posture défensive sur le défenseur.
+ * type : "physical" ou "mental"
+ * mode : "adv" (avantage) ou "normal"
+ */
+async function setDefenseStance({ defender, attacker, type = "physical", mode = "adv", uses = 1 }) {
+  if (!defender) return null;
+
+  const payload = {
+    type,                        // "physical" | "mental"
+    mode,                        // "adv" pour avantage
+    uses: Math.max(1, Number(uses) || 1),
+    vsActorId: attacker?.id || null
+  };
+
+  await defender.setFlag("unicreon", DEFENSE_STANCE_FLAG, payload);
+
+  // Icône visuelle sur les tokens
+  const statusKey = type === "mental" ? "defenseMental" : "defensePhysical";
+  await unicreonSetStatus(defender, statusKey, true, { overlay: false });
+
+  return payload;
+}
+
+/**
+ * Consomme la posture défensive SI elle s’applique à cette attaque.
+ * - si vsActorId est défini et ne matche pas l’attaquant → ignorée
+ * - type "physical" ne sert que contre les attaques physiques (melee/ranged)
+ */
+async function consumeDefenseStance({ defender, attacker, attackType = "melee" }) {
+  if (!defender) return null;
+
+  const data = defender.getFlag("unicreon", DEFENSE_STANCE_FLAG);
+  if (!data) return null;
+
+  // ciblage : seulement contre l’attaquant désigné
+  if (data.vsActorId && attacker && data.vsActorId !== attacker.id) {
+    return null;
+  }
+
+  // type "physical" : seulement contre attaque physique
+  if (data.type === "physical") {
+    const t = attackType || "melee";
+    if (!["melee", "ranged"].includes(t)) return null;
+  }
+
+  // Stance consommée → on retire le flag + l’icône
+  await defender.unsetFlag("unicreon", DEFENSE_STANCE_FLAG);
+
+  const statusKey = data.type === "mental" ? "defenseMental" : "defensePhysical";
+  await unicreonSetStatus(defender, statusKey, false, { overlay: false });
+
+  return data;
+}
+
+/**
+ * Utilisation active d’une compétence de Résistance (mentale / physique).
+ * - coûte 1 action
+ * - nécessite un token ennemi ciblé (sinon stance valable contre n’importe qui)
+ */
+async function useDefenseStance(item) {
+  const actor = item.actor ?? item.parent;
+  if (!actor) {
+    ui.notifications.warn("Aucun acteur pour cette compétence.");
+    return;
+  }
+
+  // Gestion des actions / tour
+  const actionsLeft = game.unicreon?.getActionsLeft
+    ? game.unicreon.getActionsLeft(actor)
+    : 1;
+
+  if (actionsLeft <= 0) {
+    ui.notifications.warn(`${actor.name} n'a plus d'action pour ce tour.`);
+    return;
+  }
+
+  // Détection du type via le nom
+  const name = item.name || "";
+  const isMental = name.toLowerCase().includes("mentale");
+  const type = isMental ? "mental" : "physical";
+
+  // Cible : token ennemi ciblé (facultatif)
+  const targets = Array.from(game.user?.targets ?? []);
+  const enemyToken = targets[0] || null;
+  const enemyActor = enemyToken?.actor || null;
+
+  const stance = await setDefenseStance({
+    defender: actor,
+    attacker: enemyActor,
+    type,
+    mode: "adv",
+    uses: 1
+  });
+
+  // Consomme 1 action
+  if (game.unicreon?.spendActions) {
+    await game.unicreon.spendActions(actor, 1);
+  }
+
+  const remaining = game.unicreon?.getActionsLeft
+    ? game.unicreon.getActionsLeft(actor)
+    : "—";
+
+  const cibleTxt = enemyActor
+    ? `contre <strong>${enemyActor.name}</strong>`
+    : "contre la prochaine attaque pertinente";
+
+  const label = stance.type === "mental"
+    ? "Résistance mentale (Pouvoir)"
+    : "Résistance physique (Puissance)";
+
+  const card = `
+    <div class="unicreon-card">
+      <h2>${actor.name} se met en posture défensive</h2>
+      <p><strong>${label}</strong></p>
+      <p>La prochaine défense ${cibleTxt} sera exécutée avec
+         <strong>avantage</strong> et en utilisant
+         <strong>${stance.type === "mental" ? "Pouvoir" : "Puissance"}</strong>.</p>
+      <p>Actions restantes ce tour : <strong>${remaining}</strong></p>
+    </div>
+  `;
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: card
+  });
+}
+
 // ---------------------------------------------------------------------------
 // READY : expose l’API dans game.unicreon
 // ---------------------------------------------------------------------------
@@ -756,6 +1183,9 @@ Hooks.once("ready", () => {
     parsePassiveTag,
     applyEffect,
     useItem,
+
+    // Compétences
+    rollCompetence,
 
     // Actions par tour
     getActionsLeft,
@@ -768,46 +1198,15 @@ Hooks.once("ready", () => {
     resetMoveForActor,
     spendMove,
 
+    // Défense active
+    setDefenseStance,
+    consumeDefenseStance,
+    useDefenseStance,
+
     // Passe d'armes générique
     resolveAttackFromItem
   };
 
   game.unicreon = Object.assign(game.unicreon || {}, api);
   console.log("Unicreon | API exposée :", game.unicreon);
-});
-
-// ---------------------------------------------------------------------------
-// Helpers Handlebars globaux
-// ---------------------------------------------------------------------------
-
-Hooks.once("init", () => {
-  console.log("Unicreon | register Handlebars helpers (from unicreon.js)");
-
-  const hb = globalThis.Handlebars || window.Handlebars;
-  if (!hb) {
-    console.error("Unicreon | Handlebars global introuvable");
-    return;
-  }
-
-  // Capitalise la première lettre
-  hb.registerHelper("capitalize", s =>
-    (s ?? "").charAt(0).toUpperCase() + (s ?? "").slice(1)
-  );
-
-  // Pour les <option> : "selected" si a == b
-  hb.registerHelper("optionSel", (a, b) => (a == b ? "selected" : ""));
-
-  // "d6" -> 6, "d10" -> 10, "0" -> 0
-  hb.registerHelper("dieFaces", d =>
-    (!d || d === "0") ? 0 : Number(String(d).replace("d", ""))
-  );
-
-  // Incrémente un index (pour les #each)
-  hb.registerHelper("inc", n => Number(n) + 1);
-
-  // Égalité stricte
-  hb.registerHelper("eq", (a, b) => a === b);
-
-  // a || b
-  hb.registerHelper("or", (a, b) => Boolean(a || b));
 });

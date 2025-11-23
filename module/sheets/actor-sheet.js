@@ -753,7 +753,18 @@ export class UnicreonActorSheet extends ActorSheet {
     const item = this._getItemFromEvent(event);
     if (!item) return;
 
-    // On passe par le helper global défini dans Hooks.once("ready")
+    const name = (item.name || "").toLowerCase();
+
+    // Cas particulier : Résistance physique / mentale
+    if (game.unicreon?.useDefenseStance &&
+      (name.includes("résistance physique") || name.includes("resistance physique") ||
+        name.includes("résistance mentale") || name.includes("resistance mentale"))) {
+
+      // On n'effectue PAS de jet maintenant : on arme juste la posture.
+      return game.unicreon.useDefenseStance(item);
+    }
+
+    // Sinon : compétence standard
     if (!game.unicreon?.rollCompetence) {
       ui.notifications.warn("Le helper de jet Unicreon n'est pas chargé.");
       return;
@@ -952,75 +963,83 @@ Hooks.once("ready", () => {
     const sysItem = item.system ?? {};
     const sysActor = actor.system ?? {};
 
+    // -------------------------------------------------------------
+    // (1) AUTO-DETECTION des compétences de Résistance (postures)
+    // -------------------------------------------------------------
+    const name = (item.name || "").toLowerCase();
+    const isDefense =
+      name.includes("résistance physique") ||
+      name.includes("resistance physique") ||
+      name.includes("résistance mentale") ||
+      name.includes("resistance mentale");
+
+    if (isDefense && game.unicreon?.useDefenseStance) {
+      // → POSE LA POSTURE défensive AVANT de lancer les jets
+      await game.unicreon.useDefenseStance(item);
+    }
+
+    // -------------------------------------------------------------
+    // (2) JET DE CARAC + COMPÉTENCE (comme avant)
+    // -------------------------------------------------------------
     const die = sysItem.level || "d6";
     const caracKey = sysItem.caracKey || "puissance";
 
-    const sourceAtt = sysActor.attributes ?? {};
-    const baseCarac = sourceAtt[caracKey] || "d6";
-    const caracDie = normalizeDie(baseCarac, "1d6");
+    const baseCarac = sysActor.attributes?.[caracKey] || "d6";
+    const caracDie = normalizeDie(baseCarac, "d6");
 
-    const bonusMap = sysActor.derived?.caracBonusValues ?? {};
-    const caracBonus = Number(bonusMap[caracKey] || 0);
+    const caracBonus = Number(sysActor.derived?.caracBonusValues?.[caracKey] || 0);
+    let caracFormula = caracDie + (caracBonus ? (caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`) : "");
 
-    let caracFormula = caracDie;
-    if (caracBonus) {
-      caracFormula += caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`;
-    }
-
-    // Choix du mode (comme dans la fiche d'acteur)
     const mode = await Dialog.prompt({
       title: `Jet — ${item.name}`,
       content: `
-        <form>
-          <div class="form-group">
-            <label>Mode :</label>
-            <select name="mode">
-              <option value="normal">Normal</option>
-              <option value="adv">Avantage</option>
-              <option value="disadv">Désavantage</option>
-            </select>
-          </div>
-        </form>
-      `,
+      <form>
+        <div class="form-group">
+          <label>Mode :</label>
+          <select name="mode">
+            <option value="normal">Normal</option>
+            <option value="adv">Avantage</option>
+            <option value="disadv">Désavantage</option>
+          </select>
+        </div>
+      </form>
+    `,
       label: "Lancer",
       callback: html => html.find("[name='mode']").val()
     });
 
     if (!mode) return;
 
-    let formuleSkill;
-    if (mode === "adv") formuleSkill = `2${die}kh1`;
-    else if (mode === "disadv") formuleSkill = `2${die}kl1`;
-    else formuleSkill = `1${die}`;
+    let skillFormula = mode === "adv"
+      ? `2${die}kh1`
+      : mode === "disadv"
+        ? `2${die}kl1`
+        : `1${die}`;
 
     const rollCarac = await (new Roll(caracFormula)).roll({ async: true });
-    const rollSkill = await (new Roll(formuleSkill)).roll({ async: true });
+    const rollSkill = await (new Roll(skillFormula)).roll({ async: true });
 
-    const kept = Math.max(rollCarac.total ?? 0, rollSkill.total ?? 0);
+    const kept = Math.max(rollCarac.total, rollSkill.total);
 
-    const chatContent = `
-      <div class="unicreon-card">
-        <h2>${actor.name} — ${item.name}</h2>
-        <p><b>Carac (${caracKey}) :</b> ${caracFormula} → ${rollCarac.total}</p>
-        <p><b>Compétence (${die}, ${mode}) :</b> ${rollSkill.total}</p>
-        <p><b>Résultat gardé :</b> ${kept}</p>
-      </div>
-    `;
+    // -------------------------------------------------------------
+    // (3) MESSAGE DE CHAT
+    // -------------------------------------------------------------
+    const card = `
+    <div class="unicreon-card">
+      <h2>${actor.name} — ${item.name}</h2>
+      <p><b>Carac (${caracKey}) :</b> ${caracFormula} → ${rollCarac.total}</p>
+      <p><b>Compétence (${die}, ${mode}) :</b> ${rollSkill.total}</p>
+      <p><b>Résultat gardé :</b> ${kept}</p>
+    </div>
+  `;
 
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
-      content: chatContent
+      content: card
     });
 
-    await rollCarac.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: `${actor.name} — Caractéristique (${caracKey})`
-    });
-
-    await rollSkill.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: `${actor.name} — Compétence : ${item.name} (${mode})`
-    });
+    await rollCarac.toMessage({ flavor: `${actor.name} — Caractéristique (${caracKey})` });
+    await rollSkill.toMessage({ flavor: `${actor.name} — Compétence (${item.name}) (${mode})` });
   };
 
   // -----------------------------------------------------------------------
@@ -1070,15 +1089,25 @@ Hooks.once("ready", () => {
       return ui.notifications.warn("Aucun acteur associé à cet objet.");
     }
 
-    const sysActor = actor.system ?? {};
-    const sysItem = item.system ?? {};
+    const name = item.name || "";
+    const lower = name.toLowerCase();
 
-    // 1) COMPÉTENCE → on passe par le helper avec la popup
+    // 1) COMPÉTENCE → soit Résistance X, soit jet standard
     if (item.type === "competence") {
+
+      // Compétences de défense active
+      if (game.unicreon?.useDefenseStance &&
+        (lower.includes("résistance mentale") || lower.includes("resistance mentale") ||
+          lower.includes("résistance physique") || lower.includes("resistance physique"))) {
+
+        return game.unicreon.useDefenseStance(item);
+      }
+
+      // Compétence normale : jet classique
       return game.unicreon.rollCompetence(item);
     }
 
-    // 2) Pouvoir / rituel / sort → ton système custom si dispo
+    // 2) Pouvoir / rituel / sort → système d'objets actifs si dispo
     const magicTypes = ["pouvoir", "incantation", "rituel", "sort", "spell"];
     if (magicTypes.includes(item.type) && game.unicreon?.useItem) {
       return game.unicreon.useItem(item);
@@ -1088,7 +1117,6 @@ Hooks.once("ready", () => {
     return item.sheet?.render(true);
   };
 });
-
 
 // ---------------------------------------------------------------------------
 // Post-traitement des macros créés par défaut ("Display XXX")

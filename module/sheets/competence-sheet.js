@@ -39,9 +39,24 @@ export class UnicreonCompetenceSheet extends ItemSheet {
         return;
       }
 
-      // -------------------------------------------------------------------
+      const name = (item.name || "").toLowerCase();
+
+      // -----------------------------------------------------------------------
+      // 0) Compétences de défense active :
+      //    "Résistance physique" / "Résistance mentale"
+      //    → on pose juste la posture défensive (PAS de jet ici)
+      // -----------------------------------------------------------------------
+      if (game.unicreon?.useDefenseStance &&
+        (name.includes("résistance physique") || name.includes("resistance physique") ||
+          name.includes("résistance mentale") || name.includes("resistance mentale"))) {
+
+        await game.unicreon.useDefenseStance(item);
+        return;
+      }
+
+      // -----------------------------------------------------------------------
       // 1) Compétence offensive -> passe d’armes générique
-      // -------------------------------------------------------------------
+      // -----------------------------------------------------------------------
       const attackCfg = item.system?.attack ?? {};
       const isOffensive = !!attackCfg.enabled;
       const hasAPI = !!(game.unicreon && game.unicreon.resolveAttackFromItem);
@@ -64,20 +79,20 @@ export class UnicreonCompetenceSheet extends ItemSheet {
           item
         });
 
-        // On sort : on ne fait PAS le jet simple derrière
+        // On sort : pas de jet de compétence simple derrière
         return;
       }
 
-      // -------------------------------------------------------------------
-      // 2) Autre cas -> on passe par le roller Unicreon centralisé
-      // -------------------------------------------------------------------
+      // -----------------------------------------------------------------------
+      // 2) Autre cas -> jet de compétence standard Unicreon
+      // -----------------------------------------------------------------------
       if (game.unicreon?.rollCompetence) {
         return game.unicreon.rollCompetence(item);
       }
 
-      // -------------------------------------------------------------------
-      // 3) Fallback ultra simple si l'API n'est pas dispo (sécurité)
-      // -------------------------------------------------------------------
+      // -----------------------------------------------------------------------
+      // 3) Fallback ultra simple si l'API n'est pas dispo
+      // -----------------------------------------------------------------------
       const die = item.system.level || "d6";
       const label = item.name;
 
