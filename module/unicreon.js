@@ -739,12 +739,12 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     return;
   }
 
-  const attCarac = atkCfg.caracKey || item.system?.caracKey || "puissance";
+  // carac d'attaque par défaut (config → item → "puissance")
+  const defaultAttCarac = atkCfg.caracKey || item.system?.caracKey || "puissance";
   let defCarac = atkCfg.defaultDefense || "agilite";
   let difficulty = atkCfg.baseDifficulty ?? 4;
   let damageStr = (atkCfg.damage || "1").toString().trim();
   const usePK = atkCfg.usePK !== false;
-  // Type d'attaque : par défaut, tout ce qui n'est pas marqué "spell" est physique
   const attackType = atkCfg.type || "melee";   // "melee" | "ranged" | "spell" (plus tard)
 
   const attackerPK = unicreonGetPK(actor);
@@ -756,9 +756,15 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     label: "Lancer",
     content: `
       <form class="unicreon-attack-from-item">
+
         <div class="form-group">
           <label>Caractéristique d'attaque</label>
-          <input type="text" value="${unicreonCaracLabel(attCarac)}" disabled />
+          <select name="attCarac">
+            ${UNICREON_CARACS.map(c => {
+      const sel = c === defaultAttCarac ? "selected" : "";
+      return `<option value="${c}" ${sel}>${unicreonCaracLabel(c)}</option>`;
+    }).join("")}
+          </select>
         </div>
 
         <div class="form-group">
@@ -806,6 +812,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     callback: html => {
       const $html = $(html);
       return {
+        attCarac: $html.find("[name='attCarac']").val() || defaultAttCarac,
         atkMode: $html.find("[name='atkMode']").val() || "normal",
         defCarac: $html.find("[name='defCarac']").val(),
         difficulty: Number($html.find("[name='difficulty']").val()) || difficulty,
@@ -818,7 +825,8 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
 
   if (!formData) return;
 
-  const atkMode = formData.atkMode;
+  let attCarac = formData.attCarac;
+  let atkMode = formData.atkMode;
   defCarac = formData.defCarac;
   difficulty = formData.difficulty;
   damageStr = formData.damage;
@@ -875,7 +883,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   else if (attTest.success && defTest.success) {
     if (attTest.roll.total > defTest.roll.total) winner = "attacker";
     else if (defTest.roll.total > attTest.roll.total) winner = "defender";
-    else winner = "attacker";
+    else winner = "attacker"; // égalité → avantage à l'attaquant
   }
 
   let dmg = 0;
@@ -918,7 +926,8 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
         ? `${actor.name} a l'avantage, mais aucun dégât n'est appliqué.`
         : winner === "defender"
           ? `${defender.name} se protège efficacement. Aucun dégât.`
-          : `Aucun succès clair. Au MJ d’interpréter.`;
+          : `Aucun succès clair. À la MJ d’interpréter.`;
+
   let defenseStanceText = "";
   if (stance) {
     const labelStance = stance.type === "mental"
@@ -940,6 +949,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
       </section>
     `;
   }
+
   const html = `
 <div class="unicreon-attack-card">
 
