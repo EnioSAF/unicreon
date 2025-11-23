@@ -918,7 +918,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
         ? `${actor.name} a l'avantage, mais aucun dégât n'est appliqué.`
         : winner === "defender"
           ? `${defender.name} se protège efficacement. Aucun dégât.`
-          : `Aucun succès clair. À la MJ d’interpréter.`;
+          : `Aucun succès clair. Au MJ d’interpréter.`;
   let defenseStanceText = "";
   if (stance) {
     const labelStance = stance.type === "mental"
