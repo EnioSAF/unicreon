@@ -1092,19 +1092,54 @@ Hooks.once("ready", () => {
     const name = item.name || "";
     const lower = name.toLowerCase();
 
-    // 1) COMPÉTENCE → soit Résistance X, soit jet standard
+    // 1) COMPÉTENCE → Résistance / Passe d'armes / jet standard
     if (item.type === "competence") {
+      const sysItem = item.system ?? {};
+      const atkCfg = sysItem.attack || {};
 
-      // Compétences de défense active
-      if (game.unicreon?.useDefenseStance &&
-        (lower.includes("résistance mentale") || lower.includes("resistance mentale") ||
-          lower.includes("résistance physique") || lower.includes("resistance physique"))) {
+      // a) Compétences de défense active (Résistance mentale / physique)
+      const isDefense =
+        lower.includes("résistance mentale") || lower.includes("resistance mentale") ||
+        lower.includes("résistance physique") || lower.includes("resistance physique");
 
+      if (isDefense && game.unicreon?.useDefenseStance) {
         return game.unicreon.useDefenseStance(item);
       }
 
-      // Compétence normale : jet classique
-      return game.unicreon.rollCompetence(item);
+      // b) Compétence offensive configurée -> PASSE D'ARMES GÉNÉRIQUE
+      if (atkCfg.enabled && game.unicreon?.resolveAttackFromItem) {
+        // Attaquant = token contrôlé ou premier token de l'acteur
+        const attackerToken =
+          canvas.tokens.controlled[0] ??
+          actor.getActiveTokens()[0] ??
+          null;
+
+        if (!attackerToken) {
+          ui.notifications.warn("Sélectionne le token de l'attaquant avant d'utiliser cette macro.");
+          return;
+        }
+
+        // Défenseur = premier token ciblé
+        const targetToken = [...game.user.targets][0] ?? null;
+        if (!targetToken) {
+          ui.notifications.warn("Vise un token défenseur (Alt+clic) avant d'utiliser cette macro.");
+          return;
+        }
+
+        return game.unicreon.resolveAttackFromItem({
+          actor,
+          attackerToken,
+          targetToken,
+          item
+        });
+      }
+
+      // c) Sinon : jet de compétence standard
+      if (game.unicreon?.rollCompetence) {
+        return game.unicreon.rollCompetence(item);
+      }
+
+      return ui.notifications.warn("Le helper de jet de compétence Unicreon n'est pas disponible.");
     }
 
     // 2) Pouvoir / rituel / sort → système d'objets actifs si dispo
