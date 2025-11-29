@@ -20,7 +20,11 @@ const UNICREON_STATUS_IDS = {
 const UNICREON_STATUS_LABELS = {
   defensePhysical: "unicreon-defense-physical",
   defenseMental: "unicreon-defense-mental",
-  dead: "dead"
+  dead: "dead",
+  invisible: "unicreon-invisible",
+  sleep: "unicreon-sleep",
+  confused: "unicreon-confused",
+  levitate: "unicreon-levitate"
 };
 
 Hooks.once("init", () => {
@@ -71,10 +75,26 @@ Hooks.once("init", () => {
     findByLabel(/mort|dead/i) ||
     ensureStatus("unicreon-dead", "Mort", "icons/svg/skull.svg");
 
+  const invisEff =
+    ensureStatus("unicreon-invisible", "Invisible", "icons/svg/invisible.svg");
+
+  const sleepEff =
+    ensureStatus("unicreon-sleep", "Endormi", "icons/svg/sleep.svg");
+
+  const halluEff =
+    ensureStatus("unicreon-confused", "Hallucinations", "icons/svg/daze.svg");
+
+  const levEff =
+    ensureStatus("unicreon-levitate", "Lévitation", "icons/svg/wing.svg");
+
   // REMPLIR LES IDS OFFICIELS
   UNICREON_STATUS_IDS.defensePhysical = physEff.id;
   UNICREON_STATUS_IDS.defenseMental = mentalEff.id;
   UNICREON_STATUS_IDS.dead = deadEff.id;
+  UNICREON_STATUS_IDS.invisible = invisEff.id;
+  UNICREON_STATUS_IDS.sleep = sleepEff.id;
+  UNICREON_STATUS_IDS.confused = halluEff.id;
+  UNICREON_STATUS_IDS.levitate = levEff.id;
 
   console.log("Unicreon | Status IDs :", UNICREON_STATUS_IDS);
 });
@@ -143,8 +163,8 @@ function parsePassiveTag(tag) {
     };
   }
 
-  // [pv.max +2], [pk.max -1]
-  const mPool = tag.match(/\[(pv\.max|pk\.max)\s*([+-]?\d+)\]/i);
+  // [pv.max +2], [pk.max -1], [ps.max +1]
+  const mPool = tag.match(/\[(pv\.max|pk\.max|ps\.max)\s*([+-]?\d+)\]/i);
   if (mPool) {
     return {
       target: "pool",
@@ -295,7 +315,121 @@ async function rollStatCheck(actor, item, effect) {
   return `Jet de ${statKey} : ${roll.total} (diff. ${effect.diff})`;
 }
 
+// ============================================================================
+// UNICREON – Effets nommés par clé (dôme, invisibilité, hallucinations...)
+// ============================================================================
 
+async function applyNamedEffect({ actor, item, key }) {
+  if (!actor || !key) return null;
+
+  const name = item?.name || key;
+  const lower = String(key).toLowerCase();
+
+  // Tu peux adapter la durée par défaut en rounds (1 round ~ 1 tour)
+  let effect = null;
+
+  // -------------------------------------------------------------------------
+  // DÔME DE PROTECTION (bouclier défensif temporaire)
+  // -------------------------------------------------------------------------
+  if (lower === "dome_protection") {
+    effect = await unicreonCreateTimedEffect({
+      actor,
+      label: "Dôme de protection",
+      statusKey: "defensePhysical",
+      rounds: 3,
+      changes: [
+        // Exemple : flag utilisable par ta logique plus tard
+        { key: "flags.unicreon.domeProtection", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "1" }
+      ]
+    });
+    return `${actor.name} bénéficie d'un <strong>Dôme de protection</strong> pendant 3 tours.`;
+  }
+
+  // -------------------------------------------------------------------------
+  // SANCTUAIRE PROTECTEUR (version longue / rituelle)
+  // -------------------------------------------------------------------------
+  if (lower === "sanctuaire") {
+    effect = await unicreonCreateTimedEffect({
+      actor,
+      label: "Sanctuaire protecteur",
+      statusKey: "defenseMental",
+      rounds: 5,
+      changes: [
+        { key: "flags.unicreon.sanctuary", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "1" }
+      ]
+    });
+    return `${actor.name} est dans un <strong>Sanctuaire</strong> protecteur (bonus narratif aux jets défensifs).`;
+  }
+
+  // -------------------------------------------------------------------------
+  // INVISIBILITÉ
+  // -------------------------------------------------------------------------
+  if (lower === "invisibilite") {
+    effect = await unicreonCreateTimedEffect({
+      actor,
+      label: "Invisibilité",
+      statusKey: "invisible",
+      rounds: 5,
+      changes: [
+        { key: "flags.unicreon.invisible", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "1" }
+      ]
+    });
+    return `${actor.name} devient <strong>invisible</strong> pendant quelques tours (malus aux attaques contre lui, à la discrétion du MJ).`;
+  }
+
+  // -------------------------------------------------------------------------
+  // SOMMEIL / ENDORMI
+  // -------------------------------------------------------------------------
+  if (lower === "sleep" || lower === "sommeil") {
+    effect = await unicreonCreateTimedEffect({
+      actor,
+      label: "Endormi",
+      statusKey: "sleep",
+      rounds: 4,
+      changes: [
+        { key: "flags.unicreon.asleep", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "1" }
+      ]
+    });
+    return `${actor.name} est <strong>endormi</strong> et ne peut pas agir tant que l'effet persiste.`;
+  }
+
+  // -------------------------------------------------------------------------
+  // HALLUCINATIONS
+  // -------------------------------------------------------------------------
+  if (lower === "hallucinations") {
+    effect = await unicreonCreateTimedEffect({
+      actor,
+      label: "Hallucinations",
+      statusKey: "confused",
+      rounds: 3,
+      changes: [
+        { key: "flags.unicreon.hallu", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "1" }
+      ]
+    });
+    return `${actor.name} subit de fortes <strong>hallucinations</strong> (malus à toutes les actions, à la discrétion du MJ).`;
+  }
+
+  // -------------------------------------------------------------------------
+  // LEVITATION
+  // -------------------------------------------------------------------------
+  if (lower === "levitation") {
+    effect = await unicreonCreateTimedEffect({
+      actor,
+      label: "Lévitation",
+      statusKey: "levitate",
+      rounds: 3,
+      changes: [
+        { key: "flags.unicreon.levitating", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "1" }
+      ]
+    });
+    return `${actor.name} <strong>lévite</strong> au-dessus du sol pendant quelques tours.`;
+  }
+
+  // -------------------------------------------------------------------------
+  // PAR DÉFAUT : rien de spécial, on laisse juste le tag faire le taf
+  // -------------------------------------------------------------------------
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // UTILISATION D’UN OBJET (actif) : UNICREON.USE
@@ -309,23 +443,144 @@ async function useItem(item) {
 
   const sys = item.system || {};
 
-  // Cible : token ciblé > token contrôlé > porteur lui-même
+  // -----------------------------------------------------------------------
+  // 1) Détection magie + config d'attaque
+  // -----------------------------------------------------------------------
+  const magicTypes = ["incantation", "pouvoir", "rituel", "sort", "spell"];
+  const isMagic = magicTypes.includes(item.type);
+
+  const psPool = owner.system?.pools?.ps ?? {};
+  const psCurrent = Number(psPool.value ?? 0) || 0;
+  const psMax = Number(psPool.max ?? 0) || 0;
+  const costPS = Number(sys.costPS ?? 0) || 0;
+
+  const atkCfg = sys.attack || {};
+  const isAttackSpell =
+    isMagic && atkCfg.enabled && typeof game.unicreon?.resolveAttackFromItem === "function";
+
+  const api = game.unicreon || {};
+  const getActionsFn = api.getActionsLeft || getActionsLeft;
+  const spendActionsFn = api.spendActions || spendActions;
+
+  const inActiveTurn = isActorInActiveCombatTurn(owner);
+
+  // Coût en actions :
+  // - sort OFFENSIF → system.attack.actionsCost (défaut 1)
+  // - sort utilitaire → system.actionsCost (défaut 1)
+  let actionsCost = 0;
+  if (isAttackSpell) {
+    actionsCost = Number(atkCfg.actionsCost ?? 1);
+  } else {
+    actionsCost = Number(sys.actionsCost ?? 1);
+  }
+  if (!Number.isFinite(actionsCost) || actionsCost < 0) actionsCost = 0;
+
+  let actionsLeft = UNICREON_ACTIONS_PER_TURN;
+  if (typeof getActionsFn === "function") {
+    actionsLeft =
+      Number(getActionsFn(owner) ?? UNICREON_ACTIONS_PER_TURN) || 0;
+  }
+
+  // -----------------------------------------------------------------------
+  // 2) BLOQUAGES – PS & actions (uniquement pour les sorts)
+  // -----------------------------------------------------------------------
+  if (isMagic) {
+    // a) PS à 0 et un pool PS existe → plus de sorts du tout
+    if (psMax > 0 && psCurrent <= 0) {
+      ui.notifications.warn(`${owner.name} n'a plus de points de sorts.`);
+      return;
+    }
+
+    // b) Coût PS spécifique au sort
+    if (costPS > 0 && psCurrent < costPS) {
+      ui.notifications.warn(
+        `${owner.name} n'a pas assez de points de sorts pour lancer "${item.name}" (${psCurrent}/${costPS}).`
+      );
+      return;
+    }
+
+    // c) Coût en actions → uniquement en combat & pendant son tour
+    if (inActiveTurn && actionsCost > 0 && actionsLeft < actionsCost) {
+      ui.notifications.warn(
+        `${owner.name} n'a pas assez d'actions pour "${item.name}" (${actionsLeft}/${actionsCost}).`
+      );
+      return;
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // 3) Paiement des points de sorts (déjà validé plus haut)
+  // -----------------------------------------------------------------------
+  if (isMagic && costPS > 0) {
+    const newPs = Math.max(0, psCurrent - costPS);
+    await owner.update({ "system.pools.ps.value": newPs });
+  }
+
+  // -----------------------------------------------------------------------
+  // 4) Cible & tokens
+  // -----------------------------------------------------------------------
   const targets = Array.from(game.user?.targets ?? []);
+  const attackerToken =
+    owner.getActiveTokens()[0] ||
+    canvas.tokens.controlled[0] ||
+    null;
+
   const targetToken =
     targets[0] ||
     canvas.tokens.controlled[0] ||
-    owner.getActiveTokens()[0];
+    owner.getActiveTokens()[0] ||
+    null;
 
   const targetActor = targetToken?.actor || owner;
 
-  // Coût en PV du sort (si > 0) → payé par le lanceur
-  if (item.type === "spell" && sys.costPV > 0) {
-    const actorPV = owner.system?.pools?.pv;
-    const current = Number(actorPV?.value ?? 0);
-    const newVal = Math.max(0, current - Number(sys.costPV));
-    await owner.update({ "system.pools.pv.value": newVal });
+  // -----------------------------------------------------------------------
+  // 5) CAS 1 : SORT OFFENSIF → passe d’armes magique
+  // -----------------------------------------------------------------------
+  if (isAttackSpell) {
+    if (!attackerToken) {
+      ui.notifications.warn(
+        "Sélectionne d'abord le token du lanceur avant d'utiliser ce sort offensif."
+      );
+      return;
+    }
+    if (!targetToken) {
+      ui.notifications.warn(
+        "Vise un token défenseur (Alt+clic) avant d'utiliser ce sort offensif."
+      );
+      return;
+    }
+
+    // On laisse resolveAttackFromItem :
+    // - gérer le jet Pouvoir/Volonté
+    // - gérer la défense (avec Résistance magique éventuelle)
+    // - appliquer les dégâts PV
+    // - consommer les actions (via attack.actionsCost)
+    await game.unicreon.resolveAttackFromItem({
+      actor: owner,
+      attackerToken,
+      targetToken,
+      item
+    });
+
+    // On gère quand même les "usages" / destruction après usage
+    let uses = Number(sys.uses ?? 0);
+    const max = Number(sys.usesMax ?? 0);
+
+    if (max > 0 && uses > 0) {
+      uses = uses - 1;
+      await item.update({ "system.uses": uses });
+    }
+    if (sys.destroyOnUse && (max === 0 || uses <= 0)) {
+      await item.delete();
+    }
+
+    // Pas de carte de chat ici : resolveAttackFromItem en a déjà fait une.
+    return;
   }
 
+  // -----------------------------------------------------------------------
+  // 6) CAS 2 : sort/objet "utilitaire" → ancien système à tag d'effet
+  // -----------------------------------------------------------------------
   const tag =
     sys.effectTag ||      // ancien nom
     sys.unicreonTag ||    // nom possible selon ton template
@@ -333,16 +588,31 @@ async function useItem(item) {
     sys.effectActive ||
     sys.unicreonUse ||
     "";
+
+  // Clé d'effet "structurée" pour les effets visuels / persistants
+  const effectKey =
+    sys.effectKey ||
+    sys.unicreonEffectKey ||
+    "";
+
   const effect = parseEffectTag(tag);
 
-  let result;
-  if (!effect) {
-    result = "Aucun effet actif défini sur cet objet.";
-  } else if (effect.type === "statCheck") {
-    result = await rollStatCheck(targetActor, item, effect);
-  } else {
-    result = await applyEffect(targetActor, effect);
+  let resultLines = [];
+
+  if (effectKey) {
+    const namedRes = await applyNamedEffect({ actor: targetActor, item, key: effectKey });
+    if (namedRes) resultLines.push(namedRes);
   }
+
+  if (!effect && !effectKey) {
+    resultLines.push("Aucun effet actif défini sur cet objet.");
+  } else if (effect && effect.type === "statCheck") {
+    resultLines.push(await rollStatCheck(targetActor, item, effect));
+  } else if (effect && effect.type !== "statCheck") {
+    resultLines.push(await applyEffect(targetActor, effect));
+  }
+
+  const result = resultLines.filter(Boolean).join("<br/>");
 
   // Gestion des utilisations
   let uses = Number(sys.uses ?? 0);
@@ -353,17 +623,43 @@ async function useItem(item) {
     await item.update({ "system.uses": uses });
   }
 
-  // Destruction éventuelle si "Détruire après usage ?" est coché
   if (sys.destroyOnUse && (max === 0 || uses <= 0)) {
     await item.delete();
   }
 
-  // Message de chat
+  // Consommation des actions pour les sorts utilitaires (combat only)
+  if (isMagic && actionsCost > 0 && inActiveTurn && typeof spendActionsFn === "function") {
+    await spendActionsFn(owner, actionsCost);
+    if (typeof getActionsFn === "function") {
+      actionsLeft = Number(getActionsFn(owner) ?? 0) || 0;
+    }
+  }
+
+  const extraCostText = [];
+
+  if (isMagic && costPS > 0) {
+    extraCostText.push(`${costPS} PS`);
+  }
+  if (isMagic && actionsCost > 0 && inActiveTurn) {
+    extraCostText.push(`${actionsCost} action(s)`);
+  }
+
+  const costLine = extraCostText.length
+    ? `<p><strong>Coût :</strong> ${extraCostText.join(" + ")}</p>`
+    : "";
+
+  const actionsLine =
+    isMagic && inActiveTurn && actionsCost > 0
+      ? `<p><strong>Actions restantes :</strong> ${actionsLeft}</p>`
+      : "";
+
   const card = `
     <div class="unicreon-card">
       <h2>${owner.name} utilise ${item.name}</h2>
       <p><strong>Cible :</strong> ${targetActor.name}</p>
+      ${costLine}
       <p>${result}</p>
+      ${actionsLine}
     </div>
   `;
 
@@ -373,19 +669,43 @@ async function useItem(item) {
   });
 }
 
-
-
-// ============================================================================
+/// ============================================================================
 // UNICREON – ACTIONS PAR TOUR
 // ============================================================================
+
+// L'acteur est-il en plein tour de combat ?
+function isActorInActiveCombatTurn(actor) {
+  if (!actor) return false;
+
+  const combat = game.combat;
+  if (!combat) return false;
+
+  const combatant = combat.combatant;
+  if (!combatant || !combatant.actor) return false;
+
+  return combatant.actor.id === actor.id;
+}
 
 const UNICREON_ACTIONS_PER_TURN = 2;
 
 /** Combien d'actions restent à cet acteur pour CE tour ? */
 function getActionsLeft(actor) {
   if (!actor) return 0;
+
+  // Total "normal" (config globale ou fallback)
+  const defaultTotal =
+    Number(game.unicreon?.actionsPerTurn ?? UNICREON_ACTIONS_PER_TURN) ||
+    UNICREON_ACTIONS_PER_TURN;
+
+  // HORS COMBAT ou PAS son tour :
+  // → on considère qu'il est libre, donc il a toujours son total d'actions.
+  if (!isActorInActiveCombatTurn(actor)) {
+    return defaultTotal;
+  }
+
+  // EN COMBAT, pendant SON tour → on lit le flag
   const current = actor.getFlag("unicreon", "actionsLeft");
-  if (current === undefined || current === null) return UNICREON_ACTIONS_PER_TURN;
+  if (current === undefined || current === null) return defaultTotal;
   return Number(current) || 0;
 }
 
@@ -399,102 +719,133 @@ async function setActionsLeft(actor, value) {
 
 /** Réinitialise les actions au début du tour de cet acteur. */
 async function resetActionsForActor(actor) {
-  await setActionsLeft(actor, UNICREON_ACTIONS_PER_TURN);
+  if (!actor) return 0;
+
+  let total = Number(actor.getFlag("unicreon", "actionsTotal"));
+
+  if (!Number.isFinite(total) || total <= 0) {
+    total =
+      Number(game.unicreon?.actionsPerTurn ?? UNICREON_ACTIONS_PER_TURN) ||
+      UNICREON_ACTIONS_PER_TURN;
+  }
+
+  await setActionsLeft(actor, total);
+  return total;
 }
 
 /** Consomme des actions (1 par défaut). Renvoie le nombre restant. */
 async function spendActions(actor, count = 1) {
+  if (!actor) return 0;
+
+  // HORS COMBAT ou PAS son tour :
+  // → on NE consomme PAS les actions, on ne bloque jamais.
+  if (!isActorInActiveCombatTurn(actor)) {
+    return getActionsLeft(actor);
+  }
+
   const before = getActionsLeft(actor);
-  const after = Math.max(0, before - Math.max(1, Number(count) || 1));
+  const after = Math.max(
+    0,
+    before - Math.max(1, Number(count) || 1)
+  );
   await setActionsLeft(actor, after);
 
   if (after <= 0) {
-    ui.notifications.info(`${actor.name} n'a plus d'action pour ce tour.`);
+    ui.notifications.info(
+      `${actor.name} n'a plus d'action pour ce tour.`
+    );
   }
+
   return after;
 }
-
-
 
 // ============================================================================
 // UNICREON – POINTS DE MOUVEMENT (PM)
 // ============================================================================
+// -> Le MJ / la feuille définit pm.max à la main.
+// -> On ne fait que dépenser / remettre à pm.max au début du tour.
+// ============================================================================
 
-// Dé = PM max
-const MOVE_BY_DIE = {
-  4: 3,
-  6: 4,
-  8: 5,
-  10: 6,
-  12: 7
-};
+/** Lit le pool de PM de l'acteur (valeur + max). */
+function getMovePool(actor) {
+  const pm = actor.system?.pools?.pm ?? {};
+  let max = Number(pm.max ?? 0);
+  if (!Number.isFinite(max) || max < 0) max = 0;
 
-// Récupérer faces du dé d'Agilité
-function getAgilityFaces(actor) {
-  const die = actor.system?.attributes?.agilite ?? "d6";
-  const m = String(die).match(/d(\d+)/i);
-  return m ? Number(m[1]) : 6;
+  let value = Number(pm.value ?? max);
+  if (!Number.isFinite(value) || value < 0) value = 0;
+  if (value > max) value = max;
+
+  return { value, max };
 }
 
-// PM max par tour
-function getMoveMax(actor) {
-  const faces = getAgilityFaces(actor);
-  return MOVE_BY_DIE[faces] ?? 4;
-}
-
-// Lire PM
+/** PM restants. */
 function getMoveLeft(actor) {
-  return Number(actor.system?.pools?.pm?.value ?? 0);
+  return getMovePool(actor).value;
 }
 
-// Fixer PM
+/** PM max (défini dans la fiche). */
+function getMoveMax(actor) {
+  return getMovePool(actor).max;
+}
+
+/** Fixe les PM restants sans toucher au max. */
 async function setMove(actor, value) {
-  const max = getMoveMax(actor);
+  if (!actor) return 0;
+  const { max } = getMovePool(actor);
   const clamped = Math.max(0, Math.min(max, Number(value) || 0));
+
   await actor.update({
-    "system.pools.pm.max": max,
     "system.pools.pm.value": clamped
   });
+
   return clamped;
 }
 
-// Reset PM début de tour
+/** Remet les PM à leur max (pm.max). */
 async function resetMoveForActor(actor) {
-  const max = getMoveMax(actor);
+  if (!actor) return 0;
+  const { max } = getMovePool(actor);
+
   await actor.update({
-    "system.pools.pm.max": max,
     "system.pools.pm.value": max
   });
+
   return max;
 }
 
-// Dépenser PM
+/** Dépense des PM (ne jamais passer en négatif). */
 async function spendMove(actor, cost) {
-  const left = getMoveLeft(actor);
-  const remaining = Math.max(0, left - Math.max(0, Number(cost) || 0));
-  await actor.update({ "system.pools.pm.value": remaining });
+  if (!actor) return 0;
+  const { value, max } = getMovePool(actor);
+  const remaining = Math.max(0, value - Math.max(0, Number(cost) || 0));
+
+  await actor.update({
+    "system.pools.pm.value": remaining
+  });
+
   return remaining;
 }
 
+// ---------------------------------------------------------------------------
+// RÉINITIALISATION AUTOMATIQUE AU DÉBUT DU TOUR
+// ---------------------------------------------------------------------------
 
+Hooks.on("updateCombat", async (combat, change, options, userId) => {
+  // On ne s'intéresse qu'au changement de "turn"
+  if (!("turn" in change)) return;
 
-// ============================================================================
-// HOOK : CHANGEMENT DE TOUR = reset actions + PM
-// ============================================================================
-
-Hooks.on("combatTurnChange", (combat, prior, current) => {
-  const turn = current?.turn;
-  const combatant = combat.turns[turn];
-  if (!combatant) return;
+  const combatant = combat.combatant;
+  if (!combatant?.actor) return;
 
   const actor = combatant.actor;
-  if (!actor) return;
 
-  resetActionsForActor(actor);
-  resetMoveForActor(actor);
+  // ------- PM : on remet juste la valeur au max défini sur la fiche -------
+  await resetMoveForActor(actor);
+
+  // ------- ACTIONS : on remet à son total (flag ou config globale) -------
+  await resetActionsForActor(actor);
 });
-
-
 
 // ============================================================================
 // HOOK : LIMITATION DE DÉPLACEMENT
@@ -696,6 +1047,74 @@ async function rollCompetence(item) {
 }
 
 // ============================================================================
+// UNICREON – EFFETS NOMMÉS → ActiveEffect + icône de statut
+// ============================================================================
+
+/**
+ * Crée un ActiveEffect "simple" sur un acteur, avec :
+ * - label (nom affiché)
+ * - icône (ou récupérée via unicreonFindStatusEntry)
+ * - durée en rounds
+ * - éventuelles "changes" pour modifier le système
+ */
+async function unicreonCreateTimedEffect({
+  actor,
+  label,
+  statusKey = null,   // ex: "defensePhysical", "invisible", "sleep"
+  rounds = 1,
+  changes = []
+}) {
+  if (!actor) return null;
+
+  let icon = null;
+
+  if (statusKey) {
+    const entry = unicreonFindStatusEntry(statusKey);
+    if (entry) icon = entry.icon || entry.id || null;
+
+    // Applique / retire aussi le statut de token
+    await unicreonSetStatus(actor, statusKey, true, { overlay: false });
+  }
+
+  const effectData = {
+    label: label,
+    icon: icon || "icons/svg/aura.svg",
+    disabled: false,
+    origin: actor.uuid,
+    duration: {
+      rounds: Math.max(1, Number(rounds) || 1),
+      startRound: game.combat?.round ?? 0,
+      startTime: game.time.worldTime ?? 0
+    },
+    changes: changes,
+    flags: {
+      unicreon: {
+        isNamedEffect: true,
+        statusKey: statusKey || null
+      }
+    }
+  };
+
+  const effect = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
+  return effect[0] ?? null;
+}
+
+/**
+ * Retire proprement un effet nommé + l’icône de statut associée.
+ * Appelé automatiquement par Foundry quand la durée expire,
+ * si tu ajoutes un hook plus tard (optionnel).
+ */
+async function unicreonRemoveNamedEffect(actor, effect) {
+  if (!actor || !effect) return;
+
+  const statusKey = effect.getFlag("unicreon", "statusKey");
+  if (statusKey) {
+    await unicreonSetStatus(actor, statusKey, false, { overlay: false });
+  }
+}
+
+
+// ============================================================================
 // UNICREON – RESOLUTION D'ATTAQUE A PARTIR D'UN ITEM
 // ============================================================================
 
@@ -706,7 +1125,7 @@ async function rollCompetence(item) {
  * @param {Actor}  params.actor         Attaquant (acteur)
  * @param {Token}  params.attackerToken Token de l'attaquant
  * @param {Token}  params.targetToken   Token de la cible
- * @param {Item}   params.item          Compétence / arme offensive
+ * @param {Item}   params.item          Compétence / arme / sort offensif
  */
 async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }) {
   if (!actor || !item) {
@@ -739,13 +1158,41 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     return;
   }
 
-  // carac d'attaque par défaut (config → item → "puissance")
-  const defaultAttCarac = atkCfg.caracKey || item.system?.caracKey || "puissance";
-  let defCarac = atkCfg.defaultDefense || "agilite";
+  // carac d'attaque par défaut :
+  // - atkCfg.caracKey          (config de l'item)
+  // - item.system.caracKey     (compétence)
+  // - item.system.stat         (sort Unicreon)
+  // - "puissance"              (fallback)
+  const defaultAttCarac =
+    atkCfg.caracKey ||
+    item.system?.caracKey ||
+    item.system?.stat ||
+    "puissance";
+
+  // Défense :
+  // - atkCfg.defaultDefense
+  // - pour les items magiques : "volonte"
+  // - sinon : "agilite"
+  const magicTypes = ["incantation", "pouvoir", "rituel", "sort", "spell"];
+
+  let defCarac =
+    atkCfg.defaultDefense ||
+    (magicTypes.includes(item.type) ? "volonte" : "agilite");
+
   let difficulty = atkCfg.baseDifficulty ?? 4;
   let damageStr = (atkCfg.damage || "1").toString().trim();
   const usePK = atkCfg.usePK !== false;
-  const attackType = atkCfg.type || "melee";   // "melee" | "ranged" | "spell" (plus tard)
+
+  // Coût en actions → configurable par item, 1 par défaut
+  const actionsCostRaw = atkCfg.actionsCost ?? 1;
+  let actionsCost = Number(actionsCostRaw);
+  if (!Number.isFinite(actionsCost) || actionsCost < 0) actionsCost = 0;
+
+  // Type d'attaque : "melee" | "ranged" | "spell"
+  let attackType = atkCfg.type;
+  if (!attackType) {
+    attackType = magicTypes.includes(item.type) ? "spell" : "melee";
+  }
 
   const attackerPK = unicreonGetPK(actor);
   const defenderPK = unicreonGetPK(defender);
@@ -858,7 +1305,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
 
     if (stance.type === "mental") {
       defCarac = "pouvoir";       // Défense magique → Pouvoir
-      defBuffText = " (Résistance mentale — Pouvoir)";
+      defBuffText = " (Résistance magique — Pouvoir)";
     } else {
       defCarac = "puissance";     // Défense physique → Puissance
       defBuffText = " (Résistance physique — Puissance)";
@@ -905,7 +1352,10 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     pvAfter = await unicreonSetPV(defender, pvBefore - dmg);
   }
 
-  await spendActions(actor, 1);
+  // Consommation d’actions : configurable (attaque de sort chère, etc.)
+  if (actionsCost > 0) {
+    await spendActions(actor, actionsCost);
+  }
   const actionsLeftAfter = getActionsLeft(actor);
 
   // Cartes de jets
@@ -931,7 +1381,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   let defenseStanceText = "";
   if (stance) {
     const labelStance = stance.type === "mental"
-      ? "Résistance mentale"
+      ? "Résistance magique"
       : "Résistance physique";
 
     defenseStanceText = `
@@ -1094,10 +1544,16 @@ async function consumeDefenseStance({ defender, attacker, attackType = "melee" }
     return null;
   }
 
-  // type "physical" : seulement contre attaque physique
+  // type "physical" : seulement contre attaques physiques (melee / ranged)
   if (data.type === "physical") {
     const t = attackType || "melee";
     if (!["melee", "ranged"].includes(t)) return null;
+  }
+
+  // type "mental" : seulement contre les attaques de sort
+  if (data.type === "mental") {
+    const t = attackType || "melee";
+    if (t !== "spell") return null;
   }
 
   // Stance consommée → on retire le flag + l’icône
@@ -1183,6 +1639,180 @@ async function useDefenseStance(item) {
   });
 }
 
+// ============================================================================
+// UNICREON – Utilisation d'un sort / pouvoir / potion
+// ============================================================================
+
+if (!game.unicreon) game.unicreon = {};
+
+game.unicreon.useMagicItem = async function (actor, item) {
+  if (!actor || !item) {
+    return ui.notifications.warn("Pas d'acteur / d'objet sélectionné.");
+  }
+
+  const sysA = actor.system ?? {};
+  const sysI = item.system ?? {};
+  const flags = actor.flags?.unicreon ?? {};
+
+  // -------------------------------------------------------------------------
+  // 1) Coûts (d'après tes sheets d'item)
+  //    - Coût points de sorts  : system.costSpellPoints
+  //    - Coût en actions       : system.costActions
+  // -------------------------------------------------------------------------
+
+  const costPS = Number(sysI.costSpellPoints ?? 0);
+  const costActions = Number(sysI.costActions ?? 0);
+
+  const inCombat = !!game.combat?.started;
+
+  // -------------------------------------------------------------------------
+  // 2) Ressources de l'acteur (mapping sur TA feuille)
+  //
+  //  - Points de sorts : system.pools.ps.value / max
+  //  - Actions         : flags.unicreon.actionsLeft / actionsTotal
+  // -------------------------------------------------------------------------
+
+  const curPS = Number(sysA.pools?.ps?.value ?? 0);
+  const maxPS = Number(sysA.pools?.ps?.max ?? 0);
+
+  const curAct = Number(flags.actionsLeft ?? 0);
+  const totalAct = Number(flags.actionsTotal ?? 0);
+
+  // Vérif points de sorts
+  if (costPS > 0 && curPS < costPS) {
+    return ui.notifications.warn(`${actor.name} n'a pas assez de points de sorts.`);
+  }
+
+  // Vérif actions (seulement en combat)
+  if (inCombat && costActions > 0 && curAct < costActions) {
+    return ui.notifications.warn(`${actor.name} n'a plus assez d'actions ce tour.`);
+  }
+
+  // -------------------------------------------------------------------------
+  // 3) Détection du type de sort
+  // -------------------------------------------------------------------------
+
+  const effectTag = (sysI.effectTag || "").trim();
+
+  // On considère "[-X PV]" comme dégâts ; tu peux en rajouter si tu veux
+  const isOffensif = /\[-\s*\d+\s*PV\]/i.test(effectTag);
+  const isHeal =
+    /\[\+\s*\d+\s*PV\]/i.test(effectTag) ||
+    (/^\[\s*\d+\s*PV\]/i.test(effectTag) && !isOffensif);
+
+  // Stat liée (Pouvoir par défaut)
+  const statKey = sysI.stat || "pouvoir";
+
+  // -------------------------------------------------------------------------
+  // 4) Résolution : OFFENSIF = passe d’armes, sinon effet direct
+  // -------------------------------------------------------------------------
+
+  let rollData = null;
+  let effectResult = null;
+
+  if (item.type === "pouvoir" || item.type === "incantation") {
+    if (isOffensif) {
+      // ----- 4.a) Sort offensif : passe d'armes générique -----
+      if (!game.unicreon.resolveAttackFromItem) {
+        console.warn("resolveAttackFromItem manquant, on applique juste les tags.");
+        if (game.unicreon.applyEffectTag && effectTag) {
+          effectResult = await game.unicreon.applyEffectTag({
+            actor,
+            item,
+            tag: effectTag
+          });
+        }
+      } else {
+        rollData = await game.unicreon.resolveAttackFromItem({
+          actor,
+          item,
+          isSpell: true,   // pour que resolve sache que c'est un sort
+          statKey          // Pouvoir / Volonté / etc.
+        });
+      }
+    } else {
+      // ----- 4.b) Sort utilitaire / soin -----
+      if (game.unicreon.applyEffectTag && effectTag) {
+        effectResult = await game.unicreon.applyEffectTag({
+          actor,
+          item,
+          tag: effectTag
+        });
+      }
+    }
+  } else if (item.type === "potion") {
+    // ----- 4.c) Potions -----
+    if (game.unicreon.applyEffectTag && effectTag) {
+      effectResult = await game.unicreon.applyEffectTag({
+        actor,
+        item,
+        tag: effectTag
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 5) Dépense des ressources
+  //    - PS : system.pools.ps.value
+  //    - Actions : flags.unicreon.actionsLeft
+  //      (uniquement en combat → hors combat, on ne touche pas aux actions)
+  // -------------------------------------------------------------------------
+
+  const updates = {};
+
+  if (costPS > 0) {
+    const newPS = Math.max(0, curPS - costPS);
+    foundry.utils.setProperty(updates, "system.pools.ps.value", newPS);
+  }
+
+  // Hors combat : on ne touche PAS aux actions
+  if (inCombat && costActions > 0) {
+    const newAct = Math.max(0, curAct - costActions);
+    await actor.setFlag("unicreon", "actionsLeft", newAct);
+  }
+
+  if (Object.keys(updates).length) {
+    await actor.update(updates);
+  }
+
+  // -------------------------------------------------------------------------
+  // 6) Message de chat propre
+  // -------------------------------------------------------------------------
+
+  const parts = [];
+
+  parts.push(`<strong>${actor.name}</strong> utilise <strong>${item.name}</strong>.`);
+
+  const costBits = [];
+  if (costPS > 0) costBits.push(`${costPS} PS`);
+  if (inCombat && costActions > 0) costBits.push(`${costActions} action(s)`);
+  if (costBits.length) {
+    parts.push(`<em>Coût :</em> ${costBits.join(" + ")}.`);
+  }
+
+  // Si resolveAttackFromItem renvoie déjà du HTML de jet, on l'insère
+  if (rollData?.html) {
+    parts.push(rollData.html);
+  } else if (rollData?.roll) {
+    parts.push(`<p>Jet : ${rollData.roll.total}</p>`);
+  }
+
+  // Petit rappel du tag si rien ne l’a géré automatiquement
+  if (effectTag && !effectResult?.hasEffects && !rollData?.handledEffects) {
+    parts.push(
+      `<p style="font-size:11px;color:#666;">Tag d'effet : <code>${effectTag}</code> (à gérer manuellement si besoin).</p>`
+    );
+  }
+
+  ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: `<div class="unicreon-chat-card">${parts.join("<br/>")}</div>`
+  });
+
+  return { rollData, effectResult };
+};
+
 // ---------------------------------------------------------------------------
 // READY : expose l’API dans game.unicreon
 // ---------------------------------------------------------------------------
@@ -1204,6 +1834,7 @@ Hooks.once("ready", () => {
 
     // Mouvement
     getMoveLeft,
+    getMoveMax,
     setMove,
     resetMoveForActor,
     spendMove,
@@ -1214,7 +1845,10 @@ Hooks.once("ready", () => {
     useDefenseStance,
 
     // Passe d'armes générique
-    resolveAttackFromItem
+    resolveAttackFromItem,
+
+    // config
+    actionsPerTurn: UNICREON_ACTIONS_PER_TURN
   };
 
   game.unicreon = Object.assign(game.unicreon || {}, api);

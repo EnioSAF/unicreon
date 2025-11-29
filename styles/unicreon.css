@@ -112,7 +112,128 @@
   gap: 0.4rem;
 }
 
+/* === HEADER – Panneau de ressources (droite) ========================= */
+
+.unicreon-actor-sheet .header-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.unicreon-actor-sheet .resource-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f9f3ec 0%, #f4f7fb 50%, #f6f5fb 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.unicreon-actor-sheet .resource {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.unicreon-actor-sheet .resource > label {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #8a7f72;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.unicreon-actor-sheet .res-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.unicreon-actor-sheet .resource-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.unicreon-actor-sheet .resource-pair {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.unicreon-actor-sheet .resource-row input[type="number"] {
+  width: 3rem;
+  text-align: center;
+}
+
+/* Suffices (PV / PM / PK / PO / Act.) */
+.unicreon-actor-sheet .resource-row .suffix {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #a08f7c;
+}
+
+/* PV bonus vert/rouge toujours pastels */
+.unicreon-actor-sheet .pool-mod.positive {
+  color: #1f7a4d;
+}
+
+.unicreon-actor-sheet .pool-mod.negative {
+  color: #b53939;
+}
+
+/* Charge & XP gardent le look mais un peu plus doux */
+.unicreon-actor-sheet .carry-block,
+.unicreon-actor-sheet .xp-block {
+  margin-top: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
 /* RESSOURCES (PV / PK / PO) */
+
+.resource {
+  margin-bottom: 8px;
+}
+
+.resource-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.resource-row input {
+  width: 42px;
+  text-align: center;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.resource label {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #6a5140;
+  font-weight: 600;
+}
+
+.suffix {
+  font-size: 11px;
+  opacity: 0.7;
+}
 
 .unicreon-header .resource-grid {
   display: grid;
@@ -900,6 +1021,203 @@
   font-size: 11px;
   color: #5a4334;
   text-align: right;
+}
+
+/* =======================================================================
+   HUD Unicreon : Mouvement + Actions
+   ======================================================================= */
+
+.unicreon-status-hud.app {
+  background: linear-gradient(180deg, #f8f4f1 0%, #f0ebe7 60%, #ebe5df 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  padding: 0.75rem 0.9rem 0.9rem;
+  font-family: "Noto Sans", system-ui, sans-serif;
+  color: #333;
+}
+
+.u-status-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.u-status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.u-status-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.u-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    #a1ffce 0%,
+    #52b788 60%,
+    #2b9348 100%
+  );
+  box-shadow: 0 0 6px rgba(82, 183, 136, 0.8);
+}
+
+.u-status-section {
+  padding-top: 0.35rem;
+}
+
+.u-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.2rem;
+}
+
+.u-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7a6b5d;
+}
+
+.u-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #514438;
+}
+
+/* Barre PM ------------------------------------------------------------- */
+
+.u-bar {
+  position: relative;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.u-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #cce6ff 0%, #8ac5ff 40%, #76d0b6 100%);
+  box-shadow: 0 0 6px rgba(134, 186, 255, 0.7);
+  transition: width 180ms ease-out;
+}
+
+/* Cristaux d'action ---------------------------------------------------- */
+
+.u-crystals {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+
+.u-crystal {
+  width: 16px;
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, #ffe9c7 0%, #ffd2aa 40%, #ffbf94 100%);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-shadow: 0 0 4px rgba(255, 191, 148, 0.7),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  opacity: 1;
+  transition: opacity 120ms ease-out, transform 120ms ease-out,
+    filter 120ms ease-out;
+}
+
+.u-crystal.used {
+  opacity: 0.4;
+  filter: grayscale(0.4);
+  transform: translateY(1px) scale(0.92);
+  box-shadow: none;
+}
+
+/* Cristaux de sorts ---------------------------------------------------- */
+
+.unicreon-status-hud .u-crystals--spell .u-crystal {
+  /* même taille que les actions, mais en bleu */
+  background: linear-gradient(135deg, #3fd0ff, #1976d2);
+  box-shadow: 0 0 6px rgba(63, 208, 255, 0.8);
+}
+
+.unicreon-status-hud .u-crystal--spell.used {
+  opacity: 0.25;
+  filter: grayscale(0.4) saturate(0.3);
+  box-shadow: none;
+}
+
+/* Message vide --------------------------------------------------------- */
+
+.u-status-empty {
+  padding: 0.4rem 0.1rem 0.1rem;
+  font-size: 0.8rem;
+  text-align: center;
+  color: #817369;
+  font-style: italic;
+}
+
+/* === FIX ALIGNEMENT RESSOURCES (PV / PM / ACTIONS / PK / PO) ========= */
+
+/* On force toutes les lignes de ressources à avoir la même structure */
+.unicreon-actor-sheet .resource-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1; /* Fix vertical misalignment */
+  padding: 4px 6px;
+}
+
+/* Inputs identiques partout */
+.unicreon-actor-sheet .resource-row input[type="number"] {
+  height: 22px;
+  line-height: 22px;
+  padding: 0;
+  font-size: 13px;
+  text-align: center;
+  border-radius: 4px;
+}
+
+/* Le groupe max + modificateur (PV max + bonus) doit rester compact */
+.resource-max-with-mod {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Le "/" doit rester collé verticalement et propre */
+.unicreon-actor-sheet .resource-row span {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+}
+
+/* L’icône + label restent compactes et alignées */
+.unicreon-actor-sheet .resource > label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Fix du panel de droite qui sautait entre les blocs */
+.unicreon-actor-sheet .resource-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.unicreon-actor-sheet .resource-row .sep {
+  opacity: 0.7;
+  font-weight: 700;
+  margin: 0 2px;
 }
 
 /* === FIX : empêcher les icônes de compétences/objets d’être écrasées === */

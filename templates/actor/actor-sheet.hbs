@@ -32,17 +32,14 @@
     <div class="header-side">
       <div class="resource-grid">
         <div class="resource">
-          <label>Santé</label>
+          <label><span class="res-icon">❤</span> Santé</label>
           <div class="resource-row {{pvEffective.cssClass}}">
-            {{!-- PV courants : valeur effective (clampée) mais on écrit toujours dans system.pools.pv.value --}}
             <input type="number" name="system.pools.pv.value" value="{{pvEffective.value}}" />
-            <span>/</span>
+            <span class="sep">/</span>
 
             <div class="resource-max-with-mod">
-              {{!-- PV de base (ce qui est vraiment stocké dans le système) --}}
               <input type="number" name="system.pools.pv.max" value="{{pvEffective.baseMax}}" />
 
-              {{!-- Affichage du bonus : → 14 PV en vert/rouge --}}
               {{#if pvEffective.bonus}}
               <span class="pool-mod {{pvEffective.cssClass}}">
                 → {{pvEffective.max}} PV
@@ -55,7 +52,44 @@
         </div>
 
         <div class="resource">
-          <label>Karma</label>
+          <label><span class="res-icon">🦶</span> Mouvement</label>
+          <div class="resource-row">
+            <div class="resource-pair">
+              <input type="number" name="system.pools.pm.value" value="{{pm.value}}" min="0" />
+              <span>/</span>
+              <input type="number" name="system.pools.pm.max" value="{{pm.max}}" min="0" />
+              <span class="suffix">PM</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource">
+          <label><span class="res-icon">⚔️</span> Actions</label>
+          <div class="resource-row">
+            <div class="resource-pair">
+              <input type="number" name="flags.unicreon.actionsLeft" value="{{actions.left}}" min="0"
+                max="{{actions.total}}" />
+              <span>/</span>
+              <input type="number" name="flags.unicreon.actionsTotal" value="{{actions.total}}" min="0" />
+              <span class="suffix">Act.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource">
+          <label><span class="res-icon">🔷</span> Points de sorts</label>
+          <div class="resource-row">
+            <div class="resource-pair">
+              <input type="number" name="system.pools.ps.value" value="{{pools.ps.value}}" min="0" />
+              <span>/</span>
+              <input type="number" name="system.pools.ps.max" value="{{pools.ps.max}}" min="0" />
+              <span class="suffix">PS</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource">
+          <label><span class="res-icon">✧</span> Karma</label>
           <div class="resource-row">
             <input type="number" name="system.pools.pk.value" value="{{pools.pk.value}}" />
             <span>/</span>
@@ -65,56 +99,55 @@
         </div>
 
         <div class="resource">
-          <label>Richesse</label>
+          <label><span class="res-icon">💰</span> Richesse</label>
           <div class="resource-row">
             <input type="number" name="system.pools.po.value" value="{{pools.po.value}}" />
             <span class="suffix">PO</span>
           </div>
         </div>
-      </div>
 
-      <div class="carry-block">
-        <div class="carry-top-row">
-          <label>Charge</label>
-          <span class="carry-values">
-            {{carry.used}} / {{carry.max}} PE
-          </span>
+        <div class="carry-block">
+          <div class="carry-top-row">
+            <label>Charge</label>
+            <span class="carry-values">
+              {{carry.used}} / {{carry.max}} PE
+            </span>
+          </div>
+          <div class="carry-bar">
+            <div class="carry-bar-fill {{carry.cssClass}}" style="width: {{carry.percent}}%;"></div>
+          </div>
+          <div class="carry-bottom-row">
+            <span class="carry-base">
+              Base :
+              <input type="number" name="system.carry.base" value="{{carry.base}}" min="0" />
+              PE
+            </span>
+            {{#if carry.bonus}}
+            <span class="carry-bonus">+{{carry.bonus}} PE via équipement</span>
+            {{/if}}
+          </div>
         </div>
-        <div class="carry-bar">
-          <div class="carry-bar-fill {{carry.cssClass}}" style="width: {{carry.percent}}%;"></div>
-        </div>
-        <div class="carry-bottom-row">
-          <span class="carry-base">
-            Base :
-            <input type="number" name="system.carry.base" value="{{carry.base}}" min="0" />
-            PE
-          </span>
-          {{#if carry.bonus}}
-          <span class="carry-bonus">+{{carry.bonus}} PE via équipement</span>
-          {{/if}}
-        </div>
-      </div>
 
-      <div class="xp-block">
-        <div class="xp-row">
-          <label>Niveau</label>
-          <input type="number" name="system.progress.level" value="{{progress.level}}" min="1" />
+        <div class="xp-block">
+          <div class="xp-row">
+            <label>Niveau</label>
+            <input type="number" name="system.progress.level" value="{{progress.level}}" min="1" />
+          </div>
+          <div class="xp-row">
+            <label>XP</label>
+            <input type="number" name="system.progress.xp" value="{{progress.xp}}" />
+            <span>/</span>
+            <input type="number" name="system.progress.xpNext" value="{{progress.xpNext}}" />
+          </div>
+          <div class="xp-bar">
+            <div class="xp-bar-fill" style="width: {{progress.xpPercent}}%;"></div>
+            <span class="xp-bar-label">{{progress.xp}} / {{progress.xpNext}} XP</span>
+          </div>
         </div>
-        <div class="xp-row">
-          <label>XP</label>
-          <input type="number" name="system.progress.xp" value="{{progress.xp}}" />
-          <span>/</span>
-          <input type="number" name="system.progress.xpNext" value="{{progress.xpNext}}" />
-        </div>
-        <div class="xp-bar">
-          <div class="xp-bar-fill" style="width: {{progress.xpPercent}}%;"></div>
-          <span class="xp-bar-label">{{progress.xp}} / {{progress.xpNext}} XP</span>
-        </div>
-      </div>
 
-      <button type="button" class="unicreon-test-btn" data-action="roll-test">
-        🎲 Test rapide
-      </button>
+        <button type="button" class="unicreon-test-btn" data-action="roll-test">
+          🎲 Test rapide
+        </button>
   </header>
 
   <nav class="sheet-tabs tabs">

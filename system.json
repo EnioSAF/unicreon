@@ -3,24 +3,21 @@
   "title": "Unicreon (FVTT v13 system)",
   "description": "Système maison Unicreon pour Foundry VTT v13.",
   "version": "0.3.0",
-
   "compatibility": {
     "minimum": "13",
     "verified": "13"
   },
-
   "esmodules": [
     "module/unicreon.js",
     "module/sheets/actor-sheet.js",
     "module/sheets/item-sheet.js",
     "module/sheets/competence-sheet.js",
-    "module/sheets/spell-sheet.js"
+    "module/sheets/spell-sheet.js",
+    "module/ui/unicreon-status-hud.js"
   ],
-
   "styles": [
     "styles/unicreon.css"
   ],
-
   "languages": [
     {
       "lang": "fr",
@@ -28,14 +25,12 @@
       "path": "lang/fr.json"
     }
   ],
-
   "authors": [
     {
       "name": "Enio",
       "url": ""
     }
   ],
-
   "flags": {
     "coreTranslation": "fr"
   }

@@ -315,6 +315,7 @@ export class UnicreonActorSheet extends ActorSheet {
       } else if (eff.target === "pool") {
         if (eff.key === "pv.max") targetLabel = "PV max";
         else if (eff.key === "pk.max") targetLabel = "PK max";
+        else if (eff.key === "ps.max") targetLabel = "PS max";
         else targetLabel = eff.key || "";
       }
 
@@ -398,6 +399,46 @@ export class UnicreonActorSheet extends ActorSheet {
       overloaded: !!derivedCarry.overloaded
     };
 
+    // ------------------------------------------------------------
+    // 7) Mouvement (PM) + Actions (pour la fiche)
+    // ------------------------------------------------------------
+    const pmPool = sys.pools?.pm ?? {};
+    let pmValue = Number(pmPool.value ?? 0);
+    let pmMax = Number(pmPool.max ?? 0);
+
+    if (!Number.isFinite(pmValue) || pmValue < 0) pmValue = 0;
+    if (!Number.isFinite(pmMax) || pmMax < 0) pmMax = 0;
+    if (pmValue > pmMax) pmValue = pmMax;
+
+    data.pm = {
+      value: pmValue,
+      max: pmMax
+    };
+
+    // ---- Actions ----
+    // On passe par les flags Unicreon pour stocker les valeurs éditables
+    const uFlags = actor.flags?.unicreon ?? {};
+
+    const defaultActions =
+      Number(game.unicreon?.actionsPerTurn ?? 2) || 2;
+
+    // Total d’actions par tour (éditable dans la fiche)
+    let totalActions = Number(uFlags.actionsTotal ?? defaultActions);
+    if (!Number.isFinite(totalActions) || totalActions < 1) {
+      totalActions = 1;
+    }
+
+    // Actions restantes (éditables + clampées entre 0 et total)
+    let actionsLeft = Number(uFlags.actionsLeft ?? totalActions);
+    if (!Number.isFinite(actionsLeft)) actionsLeft = totalActions;
+    if (actionsLeft < 0) actionsLeft = 0;
+    if (actionsLeft > totalActions) actionsLeft = totalActions;
+
+    data.actions = {
+      left: actionsLeft,
+      total: totalActions
+    };
+
     return data;
   }
 
@@ -437,6 +478,27 @@ export class UnicreonActorSheet extends ActorSheet {
       "change",
       "input[name='system.pools.pv.max']",
       this._onPvMaxChange.bind(this)
+    );
+
+    // PM courant : clamp 0..pm.max
+    html.on(
+      "change",
+      "input[name='system.pools.pm.value']",
+      this._onPmValueChange.bind(this)
+    );
+
+    // PM max : clamp >= 0 et ajuste la valeur si besoin
+    html.on(
+      "change",
+      "input[name='system.pools.pm.max']",
+      this._onPmMaxChange.bind(this)
+    );
+
+    // Actions restantes (stockées en flag)
+    html.on(
+      "change",
+      "input[name='flags.unicreon.actionsLeft']",
+      this._onActionsChange.bind(this)
     );
 
     // (Dé)équiper un objet depuis la fiche
@@ -565,6 +627,68 @@ export class UnicreonActorSheet extends ActorSheet {
       "system.pools.pv.max": baseMax,
       "system.pools.pv.value": currentBase
     });
+  }
+
+  // -----------------------------------------------------------------------
+  // Gestion des PM
+  // -----------------------------------------------------------------------
+  async _onPmValueChange(event) {
+    event.preventDefault();
+
+    const actor = this.actor;
+    const sys = actor.system ?? {};
+    const pm = sys.pools?.pm ?? {};
+
+    const max = Number(pm.max ?? 0) || 0;
+    let value = Number(event.currentTarget.value || 0);
+
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > max) value = max;
+
+    const current = Number(pm.value ?? 0) || 0;
+    if (value === current) return;
+
+    await actor.update({ "system.pools.pm.value": value });
+  }
+
+  async _onPmMaxChange(event) {
+    event.preventDefault();
+
+    const actor = this.actor;
+    const sys = actor.system ?? {};
+    const pm = sys.pools?.pm ?? {};
+
+    let max = Number(event.currentTarget.value || 0);
+    if (!Number.isFinite(max) || max < 0) max = 0;
+
+    let value = Number(pm.value ?? 0);
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > max) value = max;
+
+    await actor.update({
+      "system.pools.pm.max": max,
+      "system.pools.pm.value": value
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Gestion des actions (flags.unicreon.actionsLeft)
+  // -----------------------------------------------------------------------
+  async _onActionsChange(event) {
+    event.preventDefault();
+
+    const actor = this.actor;
+    let value = Number(event.currentTarget.value || 0);
+
+    const max = Number(game.unicreon?.actionsPerTurn ?? 2) || 2;
+
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > max) value = max;
+
+    await actor.setFlag("unicreon", "actionsLeft", value);
+
+    // petit refresh pour que la valeur clampée s'affiche direct
+    this.render(false);
   }
 
   // -----------------------------------------------------------------------
