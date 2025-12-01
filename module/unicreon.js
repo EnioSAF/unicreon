@@ -1164,6 +1164,149 @@ function unicreonGetDefensiveEquipProfile(actor, { attackType = "melee" } = {}) 
 }
 
 // ============================================================================
+// UNICREON – ANIMATIONS JB2A / SEQUENCER
+// ============================================================================
+
+/**
+ * Petit helper : prend une liste de clés JB2A et renvoie
+ * la première qui existe vraiment dans la base Sequencer.
+ */
+function unicreonPickFirstExistingJB2A(keys = []) {
+  const db = Sequencer?.Database;
+  if (!db) return null;
+
+  for (const k of keys) {
+    if (!k) continue;
+    if (db.entryExists(k)) return k;
+  }
+  return null;
+}
+
+/**
+ * Joue une animation d'attaque via Sequencer + JB2A
+ *
+ * @param {object} params
+ * @param {"melee"|"ranged"|"spell"} params.attackType
+ * @param {Token} params.attackerToken
+ * @param {Token} params.targetToken
+ * @param {boolean} [params.hit=true]  // true = touche, false = esquive
+ */
+async function unicreonPlayAttackAnimation({
+  attackType = "melee",
+  attackerToken,
+  targetToken,
+  hit = true
+} = {}) {
+  try {
+    const hasSeq = game.modules.get("sequencer")?.active;
+
+    // On cherche n'importe quel module dont l'id contient "jb2a"
+    const jb2aModule = Array.from(game.modules.values())
+      .find(m => m.active && m.id.toLowerCase().includes("jb2a"));
+
+    const hasJB2A = !!jb2aModule;
+
+    console.log(
+      "Unicreon | Anim check → Sequencer:", hasSeq,
+      "JB2A:", hasJB2A ? jb2aModule.id : "none"
+    );
+
+    if (!hasSeq || !hasJB2A) return;
+    if (!attackerToken || !targetToken) return;
+
+    if (typeof Sequence === "undefined") {
+      console.warn("Unicreon | Sequence n'est pas défini (Sequencer mal chargé ?)");
+      return;
+    }
+
+    // ---------------------------------------------------------------------
+    // Choix des fichiers JB2A en essayant plusieurs clés possibles
+    // (toutes sont dans le pack free normalement, ou très proches)
+    // ---------------------------------------------------------------------
+
+    let mainFile = null;
+    let impactFile = null;
+
+    if (attackType === "melee") {
+      mainFile = unicreonPickFirstExistingJB2A([
+        "jb2a.melee_generic.slash.white",
+        "jb2a.melee_generic.slash.blue",
+        "jb2a.sword.melee.01.white"
+      ]);
+      impactFile = unicreonPickFirstExistingJB2A([
+        "jb2a.impact.003.white",
+        "jb2a.impact.003.blue",
+        "jb2a.impact.003.orange"
+      ]);
+    } else if (attackType === "ranged") {
+      mainFile = unicreonPickFirstExistingJB2A([
+        "jb2a.arrow.physical.white.01",
+        "jb2a.arrow.physical.blue.01",
+        "jb2a.arrow.physical.orange.01"
+      ]);
+      impactFile = unicreonPickFirstExistingJB2A([
+        "jb2a.arrow.impact.01.white",
+        "jb2a.arrow.impact.01.blue",
+        "jb2a.impact.003.white"
+      ]);
+    } else if (attackType === "spell") {
+      mainFile = unicreonPickFirstExistingJB2A([
+        // projectiles de sort
+        "jb2a.fire_bolt.orange",
+        "jb2a.fire_bolt.red",
+        "jb2a.magic_missile.single.blue",
+        "jb2a.magic_missile.single.pink"
+      ]);
+      impactFile = unicreonPickFirstExistingJB2A([
+        // explosions pour boule de feu & co
+        "jb2a.explosion.02.orange",
+        "jb2a.explosion.02.red",
+        "jb2a.explosion.01.orange"
+      ]);
+    }
+
+    // Si on n'a RIEN trouvé de valide, on ne fait juste pas d'anim
+    if (!mainFile) {
+      console.warn("Unicreon | aucune anim JB2A trouvée pour", attackType);
+      return;
+    }
+
+    const seq = new Sequence();
+
+    const sameSpot =
+      !attackerToken || !targetToken ||
+      attackerToken.document?.id === targetToken.document?.id;
+
+    // Si attaquant et cible sont différents → projectile qui se stretch
+    if (!sameSpot) {
+      seq.effect()
+        .file(mainFile)
+        .atLocation(attackerToken)
+        .stretchTo(targetToken)
+        .waitUntilFinished(-250);
+    } else {
+      // Sinon : anim “sur place” (ex : self-buff, pas de cible, etc.)
+      seq.effect()
+        .file(mainFile)
+        .atLocation(attackerToken || targetToken)
+        .waitUntilFinished(-250);
+    }
+
+    if (hit && impactFile && targetToken && !sameSpot) {
+      seq.effect()
+        .file(impactFile)
+        .atLocation(targetToken)
+        .scale(0.7)
+        .waitUntilFinished();
+    }
+
+    await seq.play();
+  } catch (err) {
+    console.error("Unicreon | Erreur animation Sequencer/JB2A :", err);
+  }
+}
+
+// ============================================================================
 // UNICREON – RESOLUTION D'ATTAQUE A PARTIR D'UN ITEM
 // ============================================================================
 
@@ -1403,6 +1546,20 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     if (attTest.roll.total > defTotalEffective) winner = "attacker";
     else if (defTotalEffective > attTest.roll.total) winner = "defender";
     else winner = "attacker"; // égalité → avantage à l'attaquant
+  }
+
+  // -----------------------------------------------------------------------
+  // ANIMATION JB2A / SEQUENCER
+  // -----------------------------------------------------------------------
+  const hit = winner === "attacker";
+
+  if (typeof unicreonPlayAttackAnimation === "function") {
+    unicreonPlayAttackAnimation({
+      attackType,
+      attackerToken,
+      targetToken,
+      hit
+    });
   }
 
   // -----------------------------------------------------------------------
