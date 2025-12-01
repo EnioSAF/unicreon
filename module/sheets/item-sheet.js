@@ -36,10 +36,65 @@ export class UnicreonItemSheet extends ItemSheet {
     super.activateListeners(html);
     if (!this.isEditable) return;
 
-    html.on("click", "[data-action='use-item']", ev => {
+    html.on("click", "[data-action='use-item']", async ev => {
       ev.preventDefault();
+
+      const item = this.item;
+      const actor = item.parent;
+
+      if (!actor) {
+        ui.notifications.warn("L'objet doit être dans l'inventaire d'un acteur.");
+        return;
+      }
+
+      // -------------------------------------------------------------------
+      // CAS 1 : ARME OFFENSIVE → passe d'armes générique
+      // -------------------------------------------------------------------
+      const atkCfg = item.system?.attack ?? {};
+      const isWeapon = item.type === "arme";
+      const hasAPI = !!(game.unicreon && game.unicreon.resolveAttackFromItem);
+
+      if (isWeapon && atkCfg.enabled && hasAPI) {
+        const attackerToken =
+          actor.getActiveTokens()[0] ||
+          canvas.tokens.controlled[0] ||
+          null;
+
+        const targetToken =
+          Array.from(game.user?.targets ?? [])[0] ||
+          null;
+
+        if (!attackerToken) {
+          ui.notifications.warn(
+            "Sélectionne d'abord le token de l'attaquant avant d'utiliser cette arme."
+          );
+          return;
+        }
+
+        if (!targetToken) {
+          ui.notifications.warn(
+            "Vise un token défenseur (Alt + clic) avant d'utiliser cette arme."
+          );
+          return;
+        }
+
+        await game.unicreon.resolveAttackFromItem({
+          actor,
+          attackerToken,
+          targetToken,
+          item
+        });
+
+        // Pour une arme : on ne passe PAS par useItem ensuite
+        return;
+      }
+
+      // -------------------------------------------------------------------
+      // CAS 2 : tout le reste → logique générique UNICREON.USE
+      //         (potions, objets, sorts, etc.)
+      // -------------------------------------------------------------------
       if (game.unicreon?.useItem) {
-        game.unicreon.useItem(this.item);
+        game.unicreon.useItem(item);
       } else {
         ui.notifications.warn(
           "Unicreon : la fonction 'useItem' n'est pas disponible (module non chargé)."

@@ -1113,6 +1113,55 @@ async function unicreonRemoveNamedEffect(actor, effect) {
   }
 }
 
+// ============================================================================
+// UNICREON – PROFIL D'ÉQUIPEMENT DÉFENSIF
+// ============================================================================
+function unicreonGetDefensiveEquipProfile(actor, { attackType = "melee" } = {}) {
+  const profile = {
+    caracKey: null,   // carac de défense "suggérée"
+    bonus: 0,         // bonus plat au jet de défense
+    absorption: 0,    // PV absorbés si l'attaque touche
+    items: []         // liste des items qui ont contribué
+  };
+
+  if (!actor) return profile;
+
+  const isPhysical = attackType === "melee" || attackType === "ranged";
+
+  const allItems = actor.items?.contents ?? actor.items ?? [];
+  for (const item of allItems) {
+    const sys = item.system ?? {};
+
+    const isArmor = item.type === "armure";
+    const isShield = sys.category === "bouclier" || item.type === "bouclier";
+
+    if (!isArmor && !isShield) continue;
+
+    // On ne prend en compte que les objets équipés
+    if (!sys.equippable || !sys.equipped) continue;
+
+    const def = sys.defense ?? {};
+    const caracKeyRaw = (def.caracKey || "").toLowerCase();
+    const bonus = Number(def.bonus ?? 0) || 0;
+    const absorption = Number(def.absorption ?? 0) || 0;
+
+    // Par défaut : armure/bouclier ne servent que contre les attaques physiques
+    if (!isPhysical) continue;
+
+    // Carac de défense proposée par l'armure/bouclier
+    if (!profile.caracKey && caracKeyRaw && UNICREON_CARACS.includes(caracKeyRaw)) {
+      profile.caracKey = caracKeyRaw;
+    }
+
+    if (bonus || absorption) {
+      profile.items.push({ item, bonus, absorption, caracKey: caracKeyRaw });
+      profile.bonus += bonus;
+      profile.absorption += absorption;
+    }
+  }
+
+  return profile;
+}
 
 // ============================================================================
 // UNICREON – RESOLUTION D'ATTAQUE A PARTIR D'UN ITEM
@@ -1183,11 +1232,6 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   let damageStr = (atkCfg.damage || "1").toString().trim();
   const usePK = atkCfg.usePK !== false;
 
-  // Coût en actions → configurable par item, 1 par défaut
-  const actionsCostRaw = atkCfg.actionsCost ?? 1;
-  let actionsCost = Number(actionsCostRaw);
-  if (!Number.isFinite(actionsCost) || actionsCost < 0) actionsCost = 0;
-
   // Type d'attaque : "melee" | "ranged" | "spell"
   let attackType = atkCfg.type;
   if (!attackType) {
@@ -1196,6 +1240,19 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
 
   const attackerPK = unicreonGetPK(actor);
   const defenderPK = unicreonGetPK(defender);
+
+  // -----------------------------------------------------------------------
+  // PROFIL D'ÉQUIPEMENT DÉFENSIF DU DÉFENSEUR (armures, boucliers, etc.)
+  // -----------------------------------------------------------------------
+  const equipDefense = unicreonGetDefensiveEquipProfile(defender, { attackType });
+  // -> equipDefense.caracKey : carac suggérée par armure / bouclier
+  // -> equipDefense.bonus    : bonus plat au jet de défense
+  // -> equipDefense.absorption : PV absorbés si l'attaque touche
+
+  // Si l'item n'impose PAS de carac de défense, on laisse l'armure en proposer une
+  if (!atkCfg.defaultDefense && equipDefense.caracKey) {
+    defCarac = equipDefense.caracKey;
+  }
 
   // ---------- Dialogue ----------
   const formData = await Dialog.prompt({
@@ -1324,15 +1381,33 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   await unicreonSpendPK(actor, pkA);
   await unicreonSpendPK(defender, pkD);
 
+  // -----------------------------------------------------------------------
+  // APPLICATION DU BONUS D'ÉQUIPEMENT SUR LE JET DE DÉFENSE
+  // -----------------------------------------------------------------------
+  const defEquipBonus = equipDefense.bonus || 0;
+  const defEquipAbsorption = (attackType === "melee" || attackType === "ranged")
+    ? (equipDefense.absorption || 0)
+    : 0;
+
+  const defTotalBase = defTest.roll.total;
+  const defTotalEffective = defTotalBase + defEquipBonus;
+  const defSuccess = defTotalEffective >= defTest.diff;
+
+  // -----------------------------------------------------------------------
+  // DÉTERMINATION DU GAGNANT (en utilisant le total défensif modifié)
+  // -----------------------------------------------------------------------
   let winner = null;
-  if (attTest.success && !defTest.success) winner = "attacker";
-  else if (!attTest.success && defTest.success) winner = "defender";
-  else if (attTest.success && defTest.success) {
-    if (attTest.roll.total > defTest.roll.total) winner = "attacker";
-    else if (defTest.roll.total > attTest.roll.total) winner = "defender";
+  if (attTest.success && !defSuccess) winner = "attacker";
+  else if (!attTest.success && defSuccess) winner = "defender";
+  else if (attTest.success && defSuccess) {
+    if (attTest.roll.total > defTotalEffective) winner = "attacker";
+    else if (defTotalEffective > attTest.roll.total) winner = "defender";
     else winner = "attacker"; // égalité → avantage à l'attaquant
   }
 
+  // -----------------------------------------------------------------------
+  // DÉGÂTS + ABSORPTION D'ARMURE
+  // -----------------------------------------------------------------------
   let dmg = 0;
   if (winner === "attacker") {
     const txt = damageStr.toLowerCase();
@@ -1345,20 +1420,33 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     }
   }
 
+  // Absorption : seulement si l'attaque touche et que l'équipement en fournit
+  let absorbed = 0;
+  let finalDmg = 0;
+
+  if (winner === "attacker" && dmg > 0) {
+    absorbed = Math.max(0, Math.min(dmg, defEquipAbsorption));
+    finalDmg = Math.max(0, dmg - absorbed);
+  }
+
   const pvBefore = unicreonGetPV(defender);
   let pvAfter = pvBefore;
 
-  if (winner === "attacker" && dmg > 0) {
-    pvAfter = await unicreonSetPV(defender, pvBefore - dmg);
+  if (winner === "attacker" && finalDmg > 0) {
+    pvAfter = await unicreonSetPV(defender, pvBefore - finalDmg);
   }
 
   // Consommation d’actions : configurable (attaque de sort chère, etc.)
+  let actionsCostRaw = atkCfg.actionsCost ?? 1;
+  let actionsCost = Number(actionsCostRaw);
+  if (!Number.isFinite(actionsCost) || actionsCost < 0) actionsCost = 0;
+
   if (actionsCost > 0) {
     await spendActions(actor, actionsCost);
   }
   const actionsLeftAfter = getActionsLeft(actor);
 
-  // Cartes de jets
+  // Cartes de jets (attaque / défense)
   await attTest.roll.toMessage({
     speaker: ChatMessage.getSpeaker({ token: attackerToken ?? null, actor }),
     flavor: `<strong>Jet d'attaque</strong> — ${actor.name} (${unicreonCaracLabel(attCarac)})`
@@ -1369,14 +1457,31 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
     flavor: `<strong>Jet de défense</strong> — ${defender.name} (${unicreonCaracLabel(defCarac)}${defBuffText})`
   });
 
-  const resultText =
-    winner === "attacker" && dmg > 0
-      ? `${actor.name} touche ${defender.name} et inflige <strong>${dmg} PV</strong> (${pvBefore} → ${pvAfter}).`
-      : winner === "attacker" && dmg === 0
-        ? `${actor.name} a l'avantage, mais aucun dégât n'est appliqué.`
-        : winner === "defender"
-          ? `${defender.name} se protège efficacement. Aucun dégât.`
-          : `Aucun succès clair. À la MJ d’interpréter.`;
+  // Texte de résultat
+  let resultText;
+  if (winner === "attacker" && finalDmg > 0) {
+    if (absorbed > 0) {
+      resultText =
+        `${actor.name} touche ${defender.name} et inflige ` +
+        `<strong>${finalDmg} PV</strong> après ` +
+        `<strong>${absorbed} PV</strong> absorbés par l'équipement ` +
+        `(${pvBefore} → ${pvAfter}).`;
+    } else {
+      resultText =
+        `${actor.name} touche ${defender.name} et inflige ` +
+        `<strong>${finalDmg} PV</strong> (${pvBefore} → ${pvAfter}).`;
+    }
+  } else if (winner === "attacker" && finalDmg === 0 && dmg > 0 && absorbed >= dmg) {
+    resultText =
+      `${actor.name} aurait infligé <strong>${dmg} PV</strong>, ` +
+      `mais l'attaque est <strong>totalement absorbée</strong> par l'équipement de ${defender.name}.`;
+  } else if (winner === "attacker" && dmg === 0) {
+    resultText = `${actor.name} a l'avantage, mais aucun dégât n'est appliqué.`;
+  } else if (winner === "defender") {
+    resultText = `${defender.name} se protège efficacement. Aucun dégât.`;
+  } else {
+    resultText = `Aucun succès clair. À la MJ d’interpréter.`;
+  }
 
   let defenseStanceText = "";
   if (stance) {
@@ -1396,6 +1501,24 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
       <section class="u-section u-stance">
         <h3>Posture défensive</h3>
         <p>Aucune posture défensive active n'était en place.</p>
+      </section>
+    `;
+  }
+
+  // Section détaillant l'effet de l'équipement défensif
+  let defenseEquipText = "";
+  if (equipDefense.items.length > 0) {
+    const lines = equipDefense.items.map(e =>
+      `<li>${e.item.name} : bonus ${e.bonus || 0}, absorption ${e.absorption || 0} PV</li>`
+    ).join("");
+
+    defenseEquipText = `
+      <section class="u-section u-equip">
+        <h3>Équipement défensif</h3>
+        <p>Bonus total au jet de défense : <strong>+${defEquipBonus}</strong>
+           (jet ${defTotalBase} → ${defTotalEffective}).</p>
+        <p>Absorption totale : <strong>${defEquipAbsorption} PV</strong>.</p>
+        <ul>${lines}</ul>
       </section>
     `;
   }
@@ -1423,9 +1546,10 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   <section class="u-section">
     <h3>Jet de défense</h3>
     <p><strong>${defender.name}</strong> — ${unicreonCaracLabel(defCarac)} (d${defTest.faces}, ${defTest.mode}${defBuffText})</p>
-    <p>Diff : <strong>${defTest.diff}</strong> — Jet : <strong>${defTest.roll.total}</strong>
-       → <span class="u-${defTest.success ? "ok" : "fail"}">
-         ${defTest.success ? "Succès" : "Échec"}
+    <p>Diff : <strong>${defTest.diff}</strong> — Jet : <strong>${defTotalBase}</strong>
+       ${defEquipBonus ? `( +${defEquipBonus} équipement = <strong>${defTotalEffective}</strong> )` : ""}
+       → <span class="u-${defSuccess ? "ok" : "fail"}">
+         ${defSuccess ? "Succès" : "Échec"}
        </span> (PK : ${pkD})
     </p>
   </section>
@@ -1436,6 +1560,7 @@ async function resolveAttackFromItem({ actor, attackerToken, targetToken, item }
   </section>
 
   ${defenseStanceText}
+  ${defenseEquipText}
 
   <footer class="u-footer">
     Actions restantes pour <strong>${actor.name}</strong> : ${actionsLeftAfter}
