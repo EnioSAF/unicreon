@@ -1165,6 +1165,19 @@
   font-style: italic;
 }
 
+/* ========================================================================== */
+/* Curseur spécial pendant la sélection de cible Unicreon                     */
+/* ========================================================================== */
+
+/* Curseur spécial quand on est en mode ciblage Unicreon */
+body.unicreon-targeting,
+body.unicreon-targeting * {
+  cursor: crosshair !important;
+  /* ou, si tu as un PNG de curseur :
+     cursor: url("systems/unicreon/ui/cursor-target.png") 16 16, crosshair !important;
+  */
+}
+
 /* === FIX ALIGNEMENT RESSOURCES (PV / PM / ACTIONS / PK / PO) ========= */
 
 /* On force toutes les lignes de ressources à avoir la même structure */

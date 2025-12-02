@@ -435,7 +435,7 @@ async function applyNamedEffect({ actor, item, key }) {
 // UTILISATION D’UN OBJET (actif) : UNICREON.USE
 // ---------------------------------------------------------------------------
 
-async function useItem(item) {
+async function useItem(item, { attackerToken = null, targetToken = null } = {}) {
   const owner = item.parent;
   if (!owner) {
     return ui.notifications.warn("L'objet doit être dans l'inventaire d'un acteur.");
@@ -519,31 +519,34 @@ async function useItem(item) {
   // -----------------------------------------------------------------------
   // 4) Cible & tokens
   // -----------------------------------------------------------------------
-  const targets = Array.from(game.user?.targets ?? []);
-  const attackerToken =
+  const userTargets = Array.from(game.user?.targets ?? []);
+
+  const finalAttackerToken =
+    attackerToken ||
     owner.getActiveTokens()[0] ||
     canvas.tokens.controlled[0] ||
     null;
 
-  const targetToken =
-    targets[0] ||
+  const finalTargetToken =
+    targetToken ||
+    userTargets[0] ||
     canvas.tokens.controlled[0] ||
     owner.getActiveTokens()[0] ||
     null;
 
-  const targetActor = targetToken?.actor || owner;
+  const targetActor = finalTargetToken?.actor || owner;
 
   // -----------------------------------------------------------------------
   // 5) CAS 1 : SORT OFFENSIF → passe d’armes magique
   // -----------------------------------------------------------------------
   if (isAttackSpell) {
-    if (!attackerToken) {
+    if (!finalAttackerToken) {
       ui.notifications.warn(
         "Sélectionne d'abord le token du lanceur avant d'utiliser ce sort offensif."
       );
       return;
     }
-    if (!targetToken) {
+    if (!finalTargetToken) {
       ui.notifications.warn(
         "Vise un token défenseur (Alt+clic) avant d'utiliser ce sort offensif."
       );
@@ -557,8 +560,8 @@ async function useItem(item) {
     // - consommer les actions (via attack.actionsCost)
     await game.unicreon.resolveAttackFromItem({
       actor: owner,
-      attackerToken,
-      targetToken,
+      attackerToken: finalAttackerToken,
+      targetToken: finalTargetToken,
       item
     });
 
@@ -2095,6 +2098,215 @@ game.unicreon.useMagicItem = async function (actor, item) {
   return { rollData, effectResult };
 };
 
+// ============================================================================
+// UNICREON – Gestion globale du ciblage (click sur token + annulation)
+// ============================================================================
+
+const UNICREON_TARGETING = {
+  active: false,
+  handlerLeft: null,
+  handlerRight: null,
+  handlerKey: null,
+  onConfirm: null,
+  onCancel: null
+};
+
+function unicreonStopTargeting(cancelled = false) {
+  const state = UNICREON_TARGETING;
+  if (!state.active) return;
+
+  const stage = canvas?.stage;
+  if (stage) {
+    if (state.handlerLeft) stage.off("mousedown", state.handlerLeft);
+    if (state.handlerRight) stage.off("rightdown", state.handlerRight);
+  }
+
+  if (state.handlerKey) {
+    window.removeEventListener("keydown", state.handlerKey);
+  }
+
+  document.body.classList.remove("unicreon-targeting");
+  state.active = false;
+
+  const cb = cancelled ? state.onCancel : null;
+  state.handlerLeft = state.handlerRight = state.handlerKey = null;
+  state.onConfirm = state.onCancel = null;
+
+  if (typeof cb === "function") cb();
+}
+
+function unicreonStartTargeting({ hint, onConfirm, onCancel } = {}) {
+  if (!canvas?.ready) {
+    ui.notifications.warn("La scène n'est pas prête.");
+    return;
+  }
+
+  // Si un mode de ciblage était déjà actif, on le nettoie
+  unicreonStopTargeting(false);
+
+  const state = UNICREON_TARGETING;
+  state.active = true;
+  state.onConfirm = onConfirm || null;
+  state.onCancel = onCancel || null;
+
+  const stage = canvas.stage;
+
+  // Clic gauche → on prend le token sous la souris
+  state.handlerLeft = event => {
+    event.stopPropagation();
+    event.preventDefault();
+
+    const token = canvas.tokens?.hover;
+    if (!token) {
+      ui.notifications.warn("Clique directement sur un token pour le cibler.");
+      return;
+    }
+
+    const cb = state.onConfirm;
+    unicreonStopTargeting(false);
+
+    // On met à jour la "target" officielle Foundry (pratique pour d'autres modules)
+    if (typeof game.user.updateTokenTargets === "function") {
+      game.user.updateTokenTargets(token.document, { releaseOthers: true, control: false });
+    }
+
+    if (typeof cb === "function") cb(token);
+  };
+
+  // Clic droit → annulation
+  state.handlerRight = event => {
+    event.stopPropagation();
+    event.preventDefault();
+    unicreonStopTargeting(true);
+  };
+
+  // Échap → annulation
+  state.handlerKey = ev => {
+    if (ev.key === "Escape") {
+      unicreonStopTargeting(true);
+    }
+  };
+
+  stage.on("mousedown", state.handlerLeft);
+  stage.on("rightdown", state.handlerRight);
+  window.addEventListener("keydown", state.handlerKey);
+  document.body.classList.add("unicreon-targeting");
+
+  if (hint) {
+    ui.notifications.info(hint);
+  } else {
+    ui.notifications.info("Mode ciblage : clic gauche = cible, clic droit / Échap = annuler.");
+  }
+}
+
+// ============================================================================
+// UNICREON – Utilisation unifiée : compétence / sort / item + ciblage
+// ============================================================================
+
+async function unicreonUseWithTarget({ item, usageKind = "auto" } = {}) {
+  if (!item) {
+    ui.notifications.warn("Aucun item à utiliser.");
+    return;
+  }
+
+  const actor = item.parent;
+  if (!actor) {
+    ui.notifications.warn("Cet élément doit être sur un acteur.");
+    return;
+  }
+
+  const type = item.type;
+  const isCompetence = type === "competence";
+  const isWeapon = type === "arme";
+  const isSpellLike = ["incantation", "pouvoir", "potion", "rituel", "sort", "spell"].includes(type);
+  const name = (item.name || "").toLowerCase();
+
+  const attackerToken =
+    actor.getActiveTokens()[0] ||
+    canvas.tokens.controlled[0] ||
+    null;
+
+  const hint = "Clique gauche sur une cible (ou sur ton propre token). Clic droit / Échap : annuler.";
+
+  return unicreonStartTargeting({
+    hint,
+    onConfirm: async targetToken => {
+      const targetActor = targetToken?.actor || actor;
+
+      // --- Cas spécial : postures défensives (Résistance physique / mentale) ---
+      if (isCompetence &&
+        game.unicreon?.useDefenseStance &&
+        (name.includes("résistance physique") || name.includes("resistance physique") ||
+          name.includes("résistance mentale") || name.includes("resistance mentale"))) {
+
+        await game.unicreon.useDefenseStance(item);
+        return;
+      }
+
+      // --- Compétence offensive / passive ---
+      if (isCompetence) {
+        const attackCfg = item.system?.attack ?? {};
+        const isOffensive = !!attackCfg.enabled && !!game.unicreon?.resolveAttackFromItem;
+
+        // Compétence offensive → passe d'armes
+        if (isOffensive) {
+          const atkTok = attackerToken || targetToken;
+          await game.unicreon.resolveAttackFromItem({
+            actor,
+            attackerToken: atkTok,
+            targetToken,
+            item
+          });
+          return;
+        }
+
+        // Sinon : jet de compétence standard
+        if (game.unicreon?.rollCompetence) {
+          await game.unicreon.rollCompetence(item);
+          return;
+        }
+      }
+
+      // --- Armes offensives ---
+      if (isWeapon && game.unicreon?.resolveAttackFromItem) {
+        const atkTok = attackerToken || targetToken;
+        await game.unicreon.resolveAttackFromItem({
+          actor,
+          attackerToken: atkTok,
+          targetToken,
+          item
+        });
+        return;
+      }
+
+      // --- Sorts / pouvoirs / potions etc. ---
+      if (isSpellLike && game.unicreon?.useItem) {
+        const atkTok = attackerToken || targetToken;
+        await game.unicreon.useItem(item, {
+          attackerToken: atkTok,
+          targetToken
+        });
+        return;
+      }
+
+      // --- Objet générique : on passe par UNICREON.USE ---
+      if (game.unicreon?.useItem) {
+        const atkTok = attackerToken || targetToken;
+        await game.unicreon.useItem(item, {
+          attackerToken: atkTok,
+          targetToken
+        });
+        return;
+      }
+
+      ui.notifications.warn("Aucune logique d'utilisation trouvée pour cet élément.");
+    },
+    onCancel: () => {
+      ui.notifications.info("Action Unicreon annulée.");
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // READY : expose l’API dans game.unicreon
 // ---------------------------------------------------------------------------
@@ -2105,6 +2317,9 @@ Hooks.once("ready", () => {
     parsePassiveTag,
     applyEffect,
     useItem,
+
+    // Utilisation unifiée + ciblage
+    useWithTarget: unicreonUseWithTarget,
 
     // Compétences
     rollCompetence,
@@ -2132,6 +2347,7 @@ Hooks.once("ready", () => {
     // config
     actionsPerTurn: UNICREON_ACTIONS_PER_TURN
   };
+
 
   game.unicreon = Object.assign(game.unicreon || {}, api);
   console.log("Unicreon | API exposée :", game.unicreon);

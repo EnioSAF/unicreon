@@ -28,109 +28,27 @@ export class UnicreonCompetenceSheet extends ItemSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Bouton "Utiliser la compétence" sur la fiche de l'item
     html.find(".competence-roll").on("click", async ev => {
       ev.preventDefault();
 
       const item = this.item;
-      const actor = item.parent;
-      if (!actor) {
+
+      if (!item?.parent) {
         ui.notifications.warn("Cette compétence doit être sur un acteur.");
         return;
       }
 
-      const name = (item.name || "").toLowerCase();
-
-      // -----------------------------------------------------------------------
-      // 0) Compétences de défense active :
-      //    "Résistance physique" / "Résistance mentale"
-      //    → on pose juste la posture défensive (PAS de jet ici)
-      // -----------------------------------------------------------------------
-      if (game.unicreon?.useDefenseStance &&
-        (name.includes("résistance physique") || name.includes("resistance physique") ||
-          name.includes("résistance mentale") || name.includes("resistance mentale"))) {
-
-        await game.unicreon.useDefenseStance(item);
-        return;
+      if (game.unicreon?.useWithTarget) {
+        // Le core gère : posture défensive, attaque, jet simple...
+        return game.unicreon.useWithTarget({ item, usageKind: "competence" });
       }
 
-      // -----------------------------------------------------------------------
-      // 1) Compétence offensive -> passe d’armes générique
-      // -----------------------------------------------------------------------
-      const attackCfg = item.system?.attack ?? {};
-      const isOffensive = !!attackCfg.enabled;
-      const hasAPI = !!(game.unicreon && game.unicreon.resolveAttackFromItem);
-
-      if (isOffensive && hasAPI) {
-        const targetToken = Array.from(game.user?.targets ?? [])[0] || null;
-        const attackerToken = actor.getActiveTokens()[0] ?? null;
-
-        if (!targetToken) {
-          ui.notifications.warn(
-            "Vise un token défenseur (Alt + clic) avant d'utiliser cette compétence."
-          );
-          return;
-        }
-
-        await game.unicreon.resolveAttackFromItem({
-          actor,
-          attackerToken,
-          targetToken,
-          item
-        });
-
-        // On sort : pas de jet de compétence simple derrière
-        return;
-      }
-
-      // -----------------------------------------------------------------------
-      // 2) Autre cas -> jet de compétence standard Unicreon
-      // -----------------------------------------------------------------------
+      // Fallback : ancien comportement
       if (game.unicreon?.rollCompetence) {
         return game.unicreon.rollCompetence(item);
       }
 
-      // -----------------------------------------------------------------------
-      // 3) Fallback ultra simple si l'API n'est pas dispo
-      // -----------------------------------------------------------------------
-      const die = item.system.level || "d6";
-      const label = item.name;
-
-      const mode = await Dialog.prompt({
-        title: `Jet — ${label}`,
-        content: `
-        <form>
-          <div class="form-group">
-            <label>Mode :</label>
-            <select name="mode">
-              <option value="normal">Normal</option>
-              <option value="adv">Avantage</option>
-              <option value="disadv">Désavantage</option>
-            </select>
-          </div>
-        </form>
-      `,
-        label: "Lancer",
-        callback: html => html.find("[name='mode']").val()
-      });
-
-      if (!mode) return;
-
-      const facesMatch = String(die).match(/(\d+)/);
-      const faces = facesMatch ? facesMatch[1] : "6";
-
-      let formula;
-      if (mode === "adv") formula = `2d${faces}kh1`;
-      else if (mode === "disadv") formula = `2d${faces}kl1`;
-      else formula = `1d${faces}`;
-
-      const roll = new Roll(formula);
-      await roll.evaluate();
-
-      await roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor }),
-        flavor: `<strong>${label}</strong> (${mode})`
-      });
+      ui.notifications.warn("Unicreon : aucune logique de compétence trouvée.");
     });
   }
 }
