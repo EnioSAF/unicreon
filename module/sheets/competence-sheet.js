@@ -1,5 +1,5 @@
 // systems/unicreon/module/sheets/competence-sheet.js
-// Fiche de compétence Unicreon (jets avec avantage / désavantage)
+// Fiche de compétence Unicreon (jets simples + passes d'armes offensives)
 
 export class UnicreonCompetenceSheet extends ItemSheet {
   static get defaultOptions() {
@@ -32,48 +32,23 @@ export class UnicreonCompetenceSheet extends ItemSheet {
       ev.preventDefault();
 
       const item = this.item;
-      const actor = item.parent;
-      if (!actor) {
-        return ui.notifications.warn("Cette compétence doit être sur un acteur.");
+
+      if (!item?.parent) {
+        ui.notifications.warn("Cette compétence doit être sur un acteur.");
+        return;
       }
 
-      const die = item.system.level || "d6";
-      const label = item.name;
+      if (game.unicreon?.useWithTarget) {
+        // Le core gère : posture défensive, attaque, jet simple...
+        return game.unicreon.useWithTarget({ item, usageKind: "competence" });
+      }
 
-      const mode = await Dialog.prompt({
-        title: `Jet — ${label}`,
-        content: `
-          <form>
-            <div class="form-group">
-              <label>Mode :</label>
-              <select name="mode">
-                <option value="normal">Normal</option>
-                <option value="adv">Avantage</option>
-                <option value="disadv">Désavantage</option>
-              </select>
-            </div>
-          </form>
-        `,
-        label: "Lancer",
-        callback: html => html.find("[name='mode']").val()
-      });
+      // Fallback : ancien comportement
+      if (game.unicreon?.rollCompetence) {
+        return game.unicreon.rollCompetence(item);
+      }
 
-      if (!mode) return;
-
-      const facesMatch = String(die).match(/(\d+)/);
-      const faces = facesMatch ? facesMatch[1] : "6";
-
-      let formula;
-      if (mode === "adv") formula = `2d${faces}kh1`;
-      else if (mode === "disadv") formula = `2d${faces}kl1`;
-      else formula = `1d${faces}`;
-
-      const roll = await (new Roll(formula)).roll({ async: true });
-
-      roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor }),
-        flavor: `<strong>${label}</strong> (${mode})`
-      });
+      ui.notifications.warn("Unicreon : aucune logique de compétence trouvée.");
     });
   }
 }

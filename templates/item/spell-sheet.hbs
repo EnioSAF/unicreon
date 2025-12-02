@@ -47,8 +47,14 @@
             </div>
 
             <div class="form-group">
-                <label>Coût PV</label>
-                <input type="number" name="system.costPV" value="{{system.costPV}}" />
+                <label>Coût points de sorts</label>
+                <input type="number" name="system.costPS" value="{{system.costPS}}" min="0" />
+            </div>
+
+            <div class="form-group">
+                <label>Coût en actions</label>
+                <input type="number" name="system.actionsCost" value="{{system.actionsCost}}" min="0" />
+                <p class="hint">0 = gratuit, 1 = une action, 2 = deux actions…</p>
             </div>
 
             <div class="form-group">

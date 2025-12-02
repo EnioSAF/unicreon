@@ -39,11 +39,17 @@ export class UnicreonSpellSheet extends ItemSheet {
 
         html.on("click", "[data-action='use-spell']", ev => {
             ev.preventDefault();
-            if (game.unicreon?.useItem) {
-                game.unicreon.useItem(this.item);
+
+            const item = this.item;
+
+            if (game.unicreon?.useWithTarget) {
+                game.unicreon.useWithTarget({ item });
+            } else if (game.unicreon?.useItem) {
+                // Fallback sans ciblage avancé
+                game.unicreon.useItem(item);
             } else {
                 ui.notifications.warn(
-                    "Unicreon : 'useItem' n'est pas dispo, vérifie unicreon.js."
+                    "Unicreon : aucune fonction d'utilisation trouvée (useWithTarget / useItem)."
                 );
             }
         });

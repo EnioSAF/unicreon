@@ -315,6 +315,7 @@ export class UnicreonActorSheet extends ActorSheet {
       } else if (eff.target === "pool") {
         if (eff.key === "pv.max") targetLabel = "PV max";
         else if (eff.key === "pk.max") targetLabel = "PK max";
+        else if (eff.key === "ps.max") targetLabel = "PS max";
         else targetLabel = eff.key || "";
       }
 
@@ -398,6 +399,46 @@ export class UnicreonActorSheet extends ActorSheet {
       overloaded: !!derivedCarry.overloaded
     };
 
+    // ------------------------------------------------------------
+    // 7) Mouvement (PM) + Actions (pour la fiche)
+    // ------------------------------------------------------------
+    const pmPool = sys.pools?.pm ?? {};
+    let pmValue = Number(pmPool.value ?? 0);
+    let pmMax = Number(pmPool.max ?? 0);
+
+    if (!Number.isFinite(pmValue) || pmValue < 0) pmValue = 0;
+    if (!Number.isFinite(pmMax) || pmMax < 0) pmMax = 0;
+    if (pmValue > pmMax) pmValue = pmMax;
+
+    data.pm = {
+      value: pmValue,
+      max: pmMax
+    };
+
+    // ---- Actions ----
+    // On passe par les flags Unicreon pour stocker les valeurs éditables
+    const uFlags = actor.flags?.unicreon ?? {};
+
+    const defaultActions =
+      Number(game.unicreon?.actionsPerTurn ?? 2) || 2;
+
+    // Total d’actions par tour (éditable dans la fiche)
+    let totalActions = Number(uFlags.actionsTotal ?? defaultActions);
+    if (!Number.isFinite(totalActions) || totalActions < 1) {
+      totalActions = 1;
+    }
+
+    // Actions restantes (éditables + clampées entre 0 et total)
+    let actionsLeft = Number(uFlags.actionsLeft ?? totalActions);
+    if (!Number.isFinite(actionsLeft)) actionsLeft = totalActions;
+    if (actionsLeft < 0) actionsLeft = 0;
+    if (actionsLeft > totalActions) actionsLeft = totalActions;
+
+    data.actions = {
+      left: actionsLeft,
+      total: totalActions
+    };
+
     return data;
   }
 
@@ -437,6 +478,27 @@ export class UnicreonActorSheet extends ActorSheet {
       "change",
       "input[name='system.pools.pv.max']",
       this._onPvMaxChange.bind(this)
+    );
+
+    // PM courant : clamp 0..pm.max
+    html.on(
+      "change",
+      "input[name='system.pools.pm.value']",
+      this._onPmValueChange.bind(this)
+    );
+
+    // PM max : clamp >= 0 et ajuste la valeur si besoin
+    html.on(
+      "change",
+      "input[name='system.pools.pm.max']",
+      this._onPmMaxChange.bind(this)
+    );
+
+    // Actions restantes (stockées en flag)
+    html.on(
+      "change",
+      "input[name='flags.unicreon.actionsLeft']",
+      this._onActionsChange.bind(this)
     );
 
     // (Dé)équiper un objet depuis la fiche
@@ -565,6 +627,68 @@ export class UnicreonActorSheet extends ActorSheet {
       "system.pools.pv.max": baseMax,
       "system.pools.pv.value": currentBase
     });
+  }
+
+  // -----------------------------------------------------------------------
+  // Gestion des PM
+  // -----------------------------------------------------------------------
+  async _onPmValueChange(event) {
+    event.preventDefault();
+
+    const actor = this.actor;
+    const sys = actor.system ?? {};
+    const pm = sys.pools?.pm ?? {};
+
+    const max = Number(pm.max ?? 0) || 0;
+    let value = Number(event.currentTarget.value || 0);
+
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > max) value = max;
+
+    const current = Number(pm.value ?? 0) || 0;
+    if (value === current) return;
+
+    await actor.update({ "system.pools.pm.value": value });
+  }
+
+  async _onPmMaxChange(event) {
+    event.preventDefault();
+
+    const actor = this.actor;
+    const sys = actor.system ?? {};
+    const pm = sys.pools?.pm ?? {};
+
+    let max = Number(event.currentTarget.value || 0);
+    if (!Number.isFinite(max) || max < 0) max = 0;
+
+    let value = Number(pm.value ?? 0);
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > max) value = max;
+
+    await actor.update({
+      "system.pools.pm.max": max,
+      "system.pools.pm.value": value
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Gestion des actions (flags.unicreon.actionsLeft)
+  // -----------------------------------------------------------------------
+  async _onActionsChange(event) {
+    event.preventDefault();
+
+    const actor = this.actor;
+    let value = Number(event.currentTarget.value || 0);
+
+    const max = Number(game.unicreon?.actionsPerTurn ?? 2) || 2;
+
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > max) value = max;
+
+    await actor.setFlag("unicreon", "actionsLeft", value);
+
+    // petit refresh pour que la valeur clampée s'affiche direct
+    this.render(false);
   }
 
   // -----------------------------------------------------------------------
@@ -753,7 +877,18 @@ export class UnicreonActorSheet extends ActorSheet {
     const item = this._getItemFromEvent(event);
     if (!item) return;
 
-    // On passe par le helper global défini dans Hooks.once("ready")
+    const name = (item.name || "").toLowerCase();
+
+    // Cas particulier : Résistance physique / mentale
+    if (game.unicreon?.useDefenseStance &&
+      (name.includes("résistance physique") || name.includes("resistance physique") ||
+        name.includes("résistance mentale") || name.includes("resistance mentale"))) {
+
+      // On n'effectue PAS de jet maintenant : on arme juste la posture.
+      return game.unicreon.useDefenseStance(item);
+    }
+
+    // Sinon : compétence standard
     if (!game.unicreon?.rollCompetence) {
       ui.notifications.warn("Le helper de jet Unicreon n'est pas chargé.");
       return;
@@ -852,9 +987,11 @@ export class UnicreonActorSheet extends ActorSheet {
       content: chatContent
     });
 
-    await roll.toMessage({
+    await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `${this.actor.name} — Test Unicreon`
+      flavor: `${this.actor.name} — Test Unicreon`,
+      rolls: [roll],
+      type: CONST.CHAT_MESSAGE_TYPES.ROLL
     });
   }
 
@@ -950,75 +1087,83 @@ Hooks.once("ready", () => {
     const sysItem = item.system ?? {};
     const sysActor = actor.system ?? {};
 
+    // -------------------------------------------------------------
+    // (1) AUTO-DETECTION des compétences de Résistance (postures)
+    // -------------------------------------------------------------
+    const name = (item.name || "").toLowerCase();
+    const isDefense =
+      name.includes("résistance physique") ||
+      name.includes("resistance physique") ||
+      name.includes("résistance mentale") ||
+      name.includes("resistance mentale");
+
+    if (isDefense && game.unicreon?.useDefenseStance) {
+      // → POSE LA POSTURE défensive AVANT de lancer les jets
+      await game.unicreon.useDefenseStance(item);
+    }
+
+    // -------------------------------------------------------------
+    // (2) JET DE CARAC + COMPÉTENCE (comme avant)
+    // -------------------------------------------------------------
     const die = sysItem.level || "d6";
     const caracKey = sysItem.caracKey || "puissance";
 
-    const sourceAtt = sysActor.attributes ?? {};
-    const baseCarac = sourceAtt[caracKey] || "d6";
-    const caracDie = normalizeDie(baseCarac, "1d6");
+    const baseCarac = sysActor.attributes?.[caracKey] || "d6";
+    const caracDie = normalizeDie(baseCarac, "d6");
 
-    const bonusMap = sysActor.derived?.caracBonusValues ?? {};
-    const caracBonus = Number(bonusMap[caracKey] || 0);
+    const caracBonus = Number(sysActor.derived?.caracBonusValues?.[caracKey] || 0);
+    let caracFormula = caracDie + (caracBonus ? (caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`) : "");
 
-    let caracFormula = caracDie;
-    if (caracBonus) {
-      caracFormula += caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`;
-    }
-
-    // Choix du mode (comme dans la fiche d'acteur)
     const mode = await Dialog.prompt({
       title: `Jet — ${item.name}`,
       content: `
-        <form>
-          <div class="form-group">
-            <label>Mode :</label>
-            <select name="mode">
-              <option value="normal">Normal</option>
-              <option value="adv">Avantage</option>
-              <option value="disadv">Désavantage</option>
-            </select>
-          </div>
-        </form>
-      `,
+      <form>
+        <div class="form-group">
+          <label>Mode :</label>
+          <select name="mode">
+            <option value="normal">Normal</option>
+            <option value="adv">Avantage</option>
+            <option value="disadv">Désavantage</option>
+          </select>
+        </div>
+      </form>
+    `,
       label: "Lancer",
       callback: html => html.find("[name='mode']").val()
     });
 
     if (!mode) return;
 
-    let formuleSkill;
-    if (mode === "adv") formuleSkill = `2${die}kh1`;
-    else if (mode === "disadv") formuleSkill = `2${die}kl1`;
-    else formuleSkill = `1${die}`;
+    let skillFormula = mode === "adv"
+      ? `2${die}kh1`
+      : mode === "disadv"
+        ? `2${die}kl1`
+        : `1${die}`;
 
     const rollCarac = await (new Roll(caracFormula)).roll({ async: true });
-    const rollSkill = await (new Roll(formuleSkill)).roll({ async: true });
+    const rollSkill = await (new Roll(skillFormula)).roll({ async: true });
 
-    const kept = Math.max(rollCarac.total ?? 0, rollSkill.total ?? 0);
+    const kept = Math.max(rollCarac.total, rollSkill.total);
 
-    const chatContent = `
-      <div class="unicreon-card">
-        <h2>${actor.name} — ${item.name}</h2>
-        <p><b>Carac (${caracKey}) :</b> ${caracFormula} → ${rollCarac.total}</p>
-        <p><b>Compétence (${die}, ${mode}) :</b> ${rollSkill.total}</p>
-        <p><b>Résultat gardé :</b> ${kept}</p>
-      </div>
-    `;
+    // -------------------------------------------------------------
+    // (3) MESSAGE DE CHAT
+    // -------------------------------------------------------------
+    const card = `
+    <div class="unicreon-card">
+      <h2>${actor.name} — ${item.name}</h2>
+      <p><b>Carac (${caracKey}) :</b> ${caracFormula} → ${rollCarac.total}</p>
+      <p><b>Compétence (${die}, ${mode}) :</b> ${rollSkill.total}</p>
+      <p><b>Résultat gardé :</b> ${kept}</p>
+    </div>
+  `;
 
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
-      content: chatContent
+      content: card
     });
 
-    await rollCarac.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: `${actor.name} — Caractéristique (${caracKey})`
-    });
-
-    await rollSkill.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: `${actor.name} — Compétence : ${item.name} (${mode})`
-    });
+    await rollCarac.toMessage({ flavor: `${actor.name} — Caractéristique (${caracKey})` });
+    await rollSkill.toMessage({ flavor: `${actor.name} — Compétence (${item.name}) (${mode})` });
   };
 
   // -----------------------------------------------------------------------
@@ -1056,6 +1201,7 @@ Hooks.once("ready", () => {
 
   // -----------------------------------------------------------------------
   // Fonction appelée quand on clique sur un macro Unicreon
+  // → utilisée par la barre rapide
   // -----------------------------------------------------------------------
   game.unicreon.runItemMacro = async (uuid) => {
     const item = await fromUuid(uuid).catch(() => null);
@@ -1068,21 +1214,53 @@ Hooks.once("ready", () => {
       return ui.notifications.warn("Aucun acteur associé à cet objet.");
     }
 
-    const sysActor = actor.system ?? {};
+    const type = item.type;
+    const name = item.name || "";
+    const lowerName = name.toLowerCase();
     const sysItem = item.system ?? {};
 
-    // 1) COMPÉTENCE → on passe par le helper avec la popup
-    if (item.type === "competence") {
-      return game.unicreon.rollCompetence(item);
-    }
-
-    // 2) Pouvoir / rituel / sort → ton système custom si dispo
     const magicTypes = ["pouvoir", "incantation", "rituel", "sort", "spell"];
-    if (magicTypes.includes(item.type) && game.unicreon?.useItem) {
-      return game.unicreon.useItem(item);
+    const isMagic = magicTypes.includes(type);
+    const hasAttack = !!sysItem.attack?.enabled;
+    const hasEffect = !!sysItem.effectTag || !!sysItem.activeTag;
+
+    // Cas particulier : compétences de Résistance → posture défensive
+    const isDefense =
+      lowerName.includes("résistance mentale") || lowerName.includes("resistance mentale") ||
+      lowerName.includes("résistance physique") || lowerName.includes("resistance physique");
+
+    if (isDefense && game.unicreon?.useDefenseStance) {
+      return game.unicreon.useDefenseStance(item);
     }
 
-    // 3) Tout le reste → juste ouvrir la fiche
+    // Tout ce qui peut viser quelqu'un → on passe par le helper core
+    const canUseWithTarget =
+      type === "competence" ||
+      isMagic ||
+      hasAttack ||
+      hasEffect;
+
+    if (canUseWithTarget && game.unicreon?.useWithTarget) {
+      let usageKind = "active";
+
+      if (isMagic) {
+        usageKind = "spell";      // sorts / pouvoirs
+      } else if (hasAttack) {
+        usageKind = "attack";     // armes / comp offensives
+      } else if (type === "competence") {
+        usageKind = "skill";      // compés non offensives
+      }
+
+      return game.unicreon.useWithTarget({ item, usageKind });
+    }
+
+    // Sinon : objet utilitaire / truc sans effet chiffré
+    if (game.unicreon?.useItem && (hasEffect || isMagic)) {
+      const usageKind = isMagic ? "spell" : "active";
+      return game.unicreon.useItem(item, { usageKind });
+    }
+
+    // Et vraiment en dernier recours : ouvrir la fiche
     return item.sheet?.render(true);
   };
 });

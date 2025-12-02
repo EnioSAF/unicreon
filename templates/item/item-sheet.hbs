@@ -109,6 +109,128 @@
       </div>
     </div>
 
+    {{!-- DÉFENSE ARMURE / BOUCLIER --------------------------------------}}
+    {{#if (or (eq item.type "armure") (eq system.category "bouclier"))}}
+
+    <hr />
+
+    <div class="form-group stacked">
+      <label>Défense (armure / bouclier)</label>
+      <p class="hint">
+        Utilisé automatiquement lors des <strong>passes d'armes physiques</strong>
+        (mêlée / distance) quand l'objet est <strong>équipé</strong>.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>Caractéristique de défense</label>
+      <select name="system.defense.caracKey">
+        <option value="" {{optionSel system.defense.caracKey "" }}>Par défaut (Agilité / Volonté)</option>
+        <option value="agilite" {{optionSel system.defense.caracKey "agilite" }}>Agilité (armure légère, esquive)
+        </option>
+        <option value="puissance" {{optionSel system.defense.caracKey "puissance" }}>Puissance (armure lourde, bouclier)
+        </option>
+        <option value="volonte" {{optionSel system.defense.caracKey "volonte" }}>Volonté</option>
+        <option value="pouvoir" {{optionSel system.defense.caracKey "pouvoir" }}>Pouvoir</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Bonus au jet de défense</label>
+      <input type="number" name="system.defense.bonus" value="{{system.defense.bonus}}" />
+      <p class="hint">
+        S'ajoute au <strong>résultat du dé</strong> de défense
+        (avant comparaison avec la difficulté).
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>Absorption (PV)</label>
+      <input type="number" name="system.defense.absorption" value="{{system.defense.absorption}}" />
+      <p class="hint">
+        PV <strong>soustraits aux dégâts</strong> physiques subis
+        (après réussite de l'attaque).
+      </p>
+    </div>
+
+    {{/if}}
+
+    {{!-- ATTAQUE / PASSE D'ARMES ------------------------------------------}}
+
+    <hr />
+
+    <div class="form-group stacked">
+      <label>Attaque (optionnelle)</label>
+      <p class="hint">
+        Active la <strong>passe d’armes</strong> pour cette arme / cet objet.
+        L'interface de combat utilisera ces paramètres comme valeurs par défaut.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>Offensif ?</label>
+      <input type="checkbox" name="system.attack.enabled" {{checked system.attack.enabled}} />
+    </div>
+
+    <div class="form-group">
+      <label>Type d'attaque</label>
+      <select name="system.attack.type">
+        <option value="" {{optionSel system.attack.type "" }}>Standard</option>
+        <option value="melee" {{optionSel system.attack.type "melee" }}>Mêlée</option>
+        <option value="ranged" {{optionSel system.attack.type "ranged" }}>Distance</option>
+        <option value="spell" {{optionSel system.attack.type "spell" }}>Magique</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Caractéristique d'attaque (par défaut)</label>
+      <select name="system.attack.caracKey">
+        <option value="" {{optionSel system.attack.caracKey "" }}>Depuis l'item / compétence</option>
+        <option value="puissance" {{optionSel system.attack.caracKey "puissance" }}>Puissance</option>
+        <option value="agilite" {{optionSel system.attack.caracKey "agilite" }}>Agilité</option>
+        <option value="perception" {{optionSel system.attack.caracKey "perception" }}>Perception</option>
+        <option value="volonte" {{optionSel system.attack.caracKey "volonte" }}>Volonté</option>
+        <option value="pouvoir" {{optionSel system.attack.caracKey "pouvoir" }}>Pouvoir</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Caractéristique de défense (par défaut)</label>
+      <select name="system.attack.defaultDefense">
+        <option value="" {{optionSel system.attack.defaultDefense "" }}>Agilité / Volonté auto</option>
+        <option value="agilite" {{optionSel system.attack.defaultDefense "agilite" }}>Agilité</option>
+        <option value="puissance" {{optionSel system.attack.defaultDefense "puissance" }}>Puissance (armure lourde)
+        </option>
+        <option value="volonte" {{optionSel system.attack.defaultDefense "volonte" }}>Volonté</option>
+        <option value="pouvoir" {{optionSel system.attack.defaultDefense "pouvoir" }}>Pouvoir</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Difficulté de base</label>
+      <input type="number" name="system.attack.baseDifficulty" value="{{system.attack.baseDifficulty}}" min="2"
+        max="10" />
+    </div>
+
+    <div class="form-group">
+      <label>Dégâts</label>
+      <input type="text" name="system.attack.damage" value="{{system.attack.damage}}" placeholder="2, 3, max 4..." />
+      <p class="hint">
+        <code>2</code> = 2 PV fixes,
+        <code>max 4</code> = jusqu'à 4 PV selon le jet d'attaque.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>Coût en actions</label>
+      <input type="number" name="system.attack.actionsCost" value="{{system.attack.actionsCost}}" min="0" />
+    </div>
+
+    <div class="form-group">
+      <label>Autoriser la dépense de PK ?</label>
+      <input type="checkbox" name="system.attack.usePK" {{#if (eq system.attack.usePK false)}}{{else}}checked{{/if}} />
+    </div>
+
     <!-- DESCRIPTION ------------------------------------------------------>
     <div class="tab" data-group="primary" data-tab="description">
       <div class="form-group stacked">

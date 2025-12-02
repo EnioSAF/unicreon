@@ -36,15 +36,30 @@ export class UnicreonItemSheet extends ItemSheet {
     super.activateListeners(html);
     if (!this.isEditable) return;
 
-    html.on("click", "[data-action='use-item']", ev => {
+    html.on("click", "[data-action='use-item']", async ev => {
       ev.preventDefault();
-      if (game.unicreon?.useItem) {
-        game.unicreon.useItem(this.item);
-      } else {
-        ui.notifications.warn(
-          "Unicreon : la fonction 'useItem' n'est pas disponible (module non chargé)."
-        );
+
+      const item = this.item;
+      const actor = item.parent;
+
+      if (!actor) {
+        ui.notifications.warn("L'objet doit être dans l'inventaire d'un acteur.");
+        return;
       }
+
+      if (game.unicreon?.useWithTarget) {
+        // Gestion unifiée : armes offensives, potions, objets, etc.
+        return game.unicreon.useWithTarget({ item });
+      }
+
+      // Fallback : ancien comportement
+      if (game.unicreon?.useItem) {
+        return game.unicreon.useItem(item);
+      }
+
+      ui.notifications.warn(
+        "Unicreon : aucune fonction d'utilisation trouvée (useWithTarget / useItem)."
+      );
     });
   }
 }

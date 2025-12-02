@@ -1,0 +1,54 @@
+<div class="u-status-root">
+    {{#if hasActor}}
+    <header class="u-status-header">
+        <span class="u-status-dot"></span>
+        <span class="u-status-title">{{actorName}}</span>
+    </header>
+
+    <section class="u-status-section u-status-pm">
+        <div class="u-row-top">
+            <span class="u-label">
+                🦶 Mouvement
+            </span>
+            <span class="u-value">{{pmLeft}} / {{pmMax}} PM</span>
+        </div>
+
+        <div class="u-bar">
+            <div class="u-bar-fill" style="width: {{pmPercent}}%;"></div>
+        </div>
+    </section>
+
+    <section class="u-status-section u-status-actions">
+        <div class="u-row-top">
+            <span class="u-label">
+                ⚡ Actions
+            </span>
+            <span class="u-value">{{actionsLeft}} / {{actionsTotal}}</span>
+        </div>
+
+        <div class="u-crystals">
+            {{#each crystals}}
+            <span class="u-crystal {{#if used}}used{{/if}}"></span>
+            {{/each}}
+        </div>
+    </section>
+    <section class="u-status-section u-status-spellpoints">
+        <div class="u-row-top">
+            <span class="u-label">
+                🔷 Points de sorts
+            </span>
+            <span class="u-value">{{psLeft}} / {{psMax}}</span>
+        </div>
+
+        <div class="u-crystals u-crystals--spell">
+            {{#each psCrystals}}
+            <span class="u-crystal u-crystal--spell {{#if used}}used{{/if}}"></span>
+            {{/each}}
+        </div>
+    </section>
+    {{else}}
+    <div class="u-status-empty">
+        Aucun acteur sélectionné.
+    </div>
+    {{/if}}
+</div>
