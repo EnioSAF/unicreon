@@ -1174,7 +1174,7 @@ body.unicreon-targeting,
 body.unicreon-targeting * {
   cursor: crosshair !important;
   /* ou, si tu as un PNG de curseur :
-     cursor: url("systems/unicreon/ui/cursor-target.png") 16 16, crosshair !important;
+  cursor: url("systems/unicreon/ui/cursor-target.png") 16 16, crosshair !important;
   */
 }
 
