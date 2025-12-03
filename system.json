@@ -13,7 +13,8 @@
     "module/sheets/item-sheet.js",
     "module/sheets/competence-sheet.js",
     "module/sheets/spell-sheet.js",
-    "module/ui/unicreon-status-hud.js"
+    "module/ui/unicreon-status-hud.js",
+    "module/hooks/grants.js"
   ],
   "styles": [
     "styles/unicreon.css"
