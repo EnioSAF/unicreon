@@ -29,6 +29,23 @@ export class UnicreonItemSheet extends ItemSheet {
     data.item = item;
     data.system = item.system ?? item.data?.data ?? item.data?.system;
 
+    // --- Compendiums contenant des Items (pour le select des grants)
+    data.packs = Array.from(game.packs).filter(p => p.documentName === "Item");
+
+    // --- Normalisation de grantedItems : on accepte tableau OU objet {0:{},1:{}}
+    let grants = data.system.grantedItems;
+
+    if (Array.isArray(grants)) {
+      // ok
+    } else if (grants && typeof grants === "object") {
+      // cas produit par le formulaire : { "0": {...}, "1": {...} }
+      grants = Object.values(grants);
+    } else {
+      grants = [];
+    }
+
+    data.system.grantedItems = grants;
+
     return data;
   }
 
@@ -36,6 +53,7 @@ export class UnicreonItemSheet extends ItemSheet {
     super.activateListeners(html);
     if (!this.isEditable) return;
 
+    // --- Bouton "Utiliser cet objet" ---
     html.on("click", "[data-action='use-item']", async ev => {
       ev.preventDefault();
 
@@ -60,6 +78,48 @@ export class UnicreonItemSheet extends ItemSheet {
       ui.notifications.warn(
         "Unicreon : aucune fonction d'utilisation trouvée (useWithTarget / useItem)."
       );
+    });
+
+    // --- Gestion des grants (dons) ---
+
+    // Ajouter une ligne
+    html.on("click", ".grant-add", ev => {
+      ev.preventDefault();
+
+      let grants = this.item.system.grantedItems;
+      if (Array.isArray(grants)) {
+        grants = grants.slice(); // copie
+      } else if (grants && typeof grants === "object") {
+        grants = Object.values(grants);
+      } else {
+        grants = [];
+      }
+
+      grants.push({ pack: "", name: "" });
+      this.item.update({ "system.grantedItems": grants });
+    });
+
+    // Supprimer une ligne
+    html.on("click", ".grant-del", async ev => {
+      ev.preventDefault();
+      const row = ev.currentTarget.closest(".grant-row");
+      if (!row) return;
+
+      const idx = Number(row.dataset.index);
+
+      let grants = this.item.system.grantedItems;
+      if (Array.isArray(grants)) {
+        grants = grants.slice();
+      } else if (grants && typeof grants === "object") {
+        grants = Object.values(grants);
+      } else {
+        grants = [];
+      }
+
+      if (idx < 0 || idx >= grants.length) return;
+      grants.splice(idx, 1);
+
+      await this.item.update({ "system.grantedItems": grants });
     });
   }
 }

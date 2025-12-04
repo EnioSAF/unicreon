@@ -431,6 +431,66 @@ async function applyNamedEffect({ actor, item, key }) {
   return null;
 }
 
+// ============================================================================
+// ADDICTIONS – Gestion de la consommation d'objets addictifs
+// ============================================================================
+game.unicreon = game.unicreon || {};
+
+/**
+ * Gestion d'une prise d'objet addictif.
+ * - Enregistre le nombre total de doses par type ("tabac", "alcool", "drogue")
+ * - Lie le type principal d'addiction sur le perso si vide
+ * - Peut déclencher automatiquement le trait négatif "Addicte"
+ *
+ * @param {Actor} actor - l'acteur qui consomme
+ * @param {Item}  item  - l'objet consommé
+ */
+game.unicreon.handleAddictionUse = async function (actor, item) {
+  if (!actor || !item) return;
+
+  const type = item.system?.addictionType;
+  if (!type) return; // objet non addictif, on s'en fout
+
+  // ⚠ adapte cette clé à celle de ton trait dans negativeTraits
+  const ADDICT_TRAIT_KEY = "addicte";
+
+  // 1) Statistiques : nombre total de doses par type
+  const stats = foundry.utils.duplicate(
+    actor.getFlag("unicreon", "addictionStats") || {}
+  );
+
+  const current = stats[type] || { dosesTotal: 0 };
+  current.dosesTotal++;
+  stats[type] = current;
+
+  await actor.setFlag("unicreon", "addictionStats", stats);
+
+  // 2) Si l'acteur n'a pas encore de type principal d'addiction → on prend celui-là
+  if (!actor.getFlag("unicreon", "addictionType")) {
+    await actor.setFlag("unicreon", "addictionType", type);
+  }
+
+  // 3) Sortir d'un éventuel état "en manque"
+  await actor.update({
+    "flags.unicreon.addictionWithdrawal": false
+  });
+
+  // 4) Déclenchement automatique du trait négatif
+  const currentTrait = actor.getFlag("unicreon", "negativeTrait") || "";
+  const DOSE_THRESHOLD = 5; // nombre de doses avant de devenir officiellement "Addicte"
+
+  if (current.dosesTotal >= DOSE_THRESHOLD && currentTrait !== ADDICT_TRAIT_KEY) {
+    await actor.update({
+      "flags.unicreon.negativeTrait": ADDICT_TRAIT_KEY
+    });
+
+    ui.notifications.info(
+      `${actor.name} développe le trait négatif « Addicte » (${type}).`
+    );
+  }
+};
+
+
 // ---------------------------------------------------------------------------
 // UTILISATION D’UN OBJET (actif) : UNICREON.USE
 // ---------------------------------------------------------------------------
@@ -553,11 +613,6 @@ async function useItem(item, { attackerToken = null, targetToken = null } = {}) 
       return;
     }
 
-    // On laisse resolveAttackFromItem :
-    // - gérer le jet Pouvoir/Volonté
-    // - gérer la défense (avec Résistance magique éventuelle)
-    // - appliquer les dégâts PV
-    // - consommer les actions (via attack.actionsCost)
     await game.unicreon.resolveAttackFromItem({
       actor: owner,
       attackerToken: finalAttackerToken,
@@ -565,7 +620,6 @@ async function useItem(item, { attackerToken = null, targetToken = null } = {}) 
       item
     });
 
-    // On gère quand même les "usages" / destruction après usage
     let uses = Number(sys.uses ?? 0);
     const max = Number(sys.usesMax ?? 0);
 
@@ -575,6 +629,11 @@ async function useItem(item, { attackerToken = null, targetToken = null } = {}) 
     }
     if (sys.destroyOnUse && (max === 0 || uses <= 0)) {
       await item.delete();
+    }
+
+    // >>> ADDICTION : si l'item est addictif, on enregistre la dose
+    if (item.system?.addictionType && game.unicreon?.handleAddictionUse) {
+      await game.unicreon.handleAddictionUse(owner, item);
     }
 
     // Pas de carte de chat ici : resolveAttackFromItem en a déjà fait une.
@@ -665,6 +724,11 @@ async function useItem(item, { attackerToken = null, targetToken = null } = {}) 
       ${actionsLine}
     </div>
   `;
+
+  // >>> ADDICTION : si l'item a un type d'addiction, on log la consommation
+  if (item.system?.addictionType && game.unicreon?.handleAddictionUse) {
+    await game.unicreon.handleAddictionUse(owner, item);
+  }
 
   await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor: owner }),

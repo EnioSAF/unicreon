@@ -1,10 +1,12 @@
 <form class="{{cssClass}} unicreon-actor-sheet" autocomplete="off">
   <!-- HEADER ========================================================== -->
   <header class="unicreon-header flexrow">
+    <!-- Portrait ----------------------------------------------------- -->
     <div class="portrait">
       <img src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
     </div>
 
+    <!-- Colonne centrale : nom, histoire, tags, défaut ---------------->
     <div class="header-main">
       <div class="name-row">
         <input name="name" type="text" value="{{actor.name}}" />
@@ -28,8 +30,90 @@
             placeholder="Guerrier, Inquisiteur, Alchimiste…" />
         </div>
       </div>
+
+      {{!-- BLOC TRAIT NÉGATIF PLEINE LARGEUR SOUS LES TAGS -------------}}
+      <section class="negative-trait-block">
+        <label class="trait-label">Trait négatif</label>
+
+        <div class="negative-selector-row">
+          <select name="flags.unicreon.negativeTrait">
+            {{#each negativeTraits}}
+            <option value="{{this.key}}" {{optionSel ../flags.unicreon.negativeTrait this.key}}>
+              {{#if this.secret}}
+              {{#if ../negativeTraitUi.isLatent}}
+              [Trait caché]
+              {{else}}
+              {{this.label}}
+              {{/if}}
+              {{else}}
+              {{this.label}}
+              {{/if}}
+            </option>
+            {{/each}}
+          </select>
+
+          <button type="button" class="negative-trait-random" data-action="random-negative-trait">
+            🎲
+          </button>
+        </div>
+
+        {{#if currentNegativeTrait}}
+        <div class="trait-summary">
+          {{#if negativeTraitUi.isNone}}
+          <span class="pill none">Aucun défaut majeur</span>
+          {{else}}
+          {{#if negativeTraitUi.isSecret}}
+          {{#if negativeTraitUi.isLatent}}
+          <span class="pill latent">Trait latent (secret)</span>
+          <p class="trait-hint">
+            {{currentNegativeTrait.shortDormant}}
+          </p>
+          {{else}}
+          <span class="pill active">Trait actif</span>
+          <p class="trait-hint">{{currentNegativeTrait.shortActive}}</p>
+          {{/if}}
+          {{else}}
+          <span class="pill active">Trait actif</span>
+          <p class="trait-hint">{{currentNegativeTrait.shortActive}}</p>
+          {{/if}}
+          {{/if}}
+
+          {{!-- Bloc ADDICTION seulement si le trait est addicte --}}
+          {{#if isAddicte}}
+          <div class="addiction-config">
+            <label>Type de dépendance :</label>
+            <select name="flags.unicreon.addictionType">
+              <option value="">(non défini)</option>
+              <option value="tabac" {{optionSel flags.unicreon.addictionType "tabac" }}>Tabac</option>
+              <option value="alcool" {{optionSel flags.unicreon.addictionType "alcool" }}>Alcool</option>
+              <option value="drogue" {{optionSel flags.unicreon.addictionType "drogue" }}>Drogue</option>
+            </select>
+
+            {{#if flags.unicreon.addictionType}}
+            <div class="addiction-info">
+              {{#if flags.unicreon.addictionWithdrawal}}
+              <span class="withdraw-label">EN MANQUE</span>
+              {{else}}
+              <span class="withdraw-ok">Stable pour l'instant</span>
+              {{/if}}
+
+              {{#if flags.unicreon.addictionHoursText}}
+              <p class="trait-hint">{{flags.unicreon.addictionHoursText}}</p>
+              {{/if}}
+
+              <button type="button" class="addiction-dose-btn" data-action="addiction-consume-now">
+                Prendre une dose maintenant
+              </button>
+            </div>
+            {{/if}}
+          </div>
+          {{/if}}
+        </div>
+        {{/if}}
+      </section>
     </div>
 
+    <!-- Colonne droite : ressources ----------------------------------- -->
     <div class="header-side">
       <div class="resource-grid">
         <!-- PV --------------------------------------------------------- -->
