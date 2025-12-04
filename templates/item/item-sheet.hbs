@@ -80,6 +80,22 @@
         <input type="checkbox" name="system.destroyOnUse" {{checked system.destroyOnUse}} />
       </div>
 
+      {{!-- Bloc Addiction (optionnel) ----------------------------------------}}
+      <section class="item-addiction">
+        <label>Effet d'addiction</label>
+        <div class="form-fields">
+          <select name="system.addictionType">
+            <option value="">(aucun)</option>
+            <option value="tabac" {{optionSel system.addictionType "tabac" }}>Tabac</option>
+            <option value="alcool" {{optionSel system.addictionType "alcool" }}>Alcool</option>
+            <option value="drogue" {{optionSel system.addictionType "drogue" }}>Drogue</option>
+          </select>
+          <span class="hint">
+            Si défini, utiliser cet objet compte comme une dose pour le trait "Addicte".
+          </span>
+        </div>
+      </section>
+
       <div class="form-group">
         <label>&nbsp;</label>
         <button type="button" data-action="use-item">

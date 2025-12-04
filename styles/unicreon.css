@@ -687,6 +687,116 @@
   background: rgba(31, 122, 58, 0.08);
 }
 
+/* === ADDICTIONS ====================================================== */
+
+.item-addiction {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(200, 70, 40, 0.04);
+  border: 1px dashed rgba(200, 70, 40, 0.4);
+  font-size: 0.85rem;
+}
+
+.item-addiction > label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8a3b2c;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.item-addiction .hint {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  color: #555;
+}
+
+/* ======================================================================= */
+/*  TRAIT NÉGATIF – NOUVELLE MISE EN PAGE                                   */
+/* ======================================================================= */
+
+.negative-trait-block {
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(190, 170, 150, 0.15);
+  border: 1px solid rgba(80, 60, 40, 0.25);
+}
+
+.negative-trait-block .trait-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5c4638;
+}
+
+.negative-selector-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.negative-selector-row select {
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+
+.pill.active {
+  background: #b63434;
+  color: #fff;
+}
+
+.pill.latent {
+  background: #e0d3be;
+  color: #4a3c2a;
+}
+
+.pill.none {
+  background: #d8d8d8;
+  color: #333;
+}
+
+.trait-summary .trait-hint {
+  font-size: 0.75rem;
+  color: #5b5148;
+  margin: 0.25rem 0;
+}
+
+/* Addiction config */
+.addiction-config {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(50, 40, 30, 0.3);
+}
+
+.addiction-info {
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.withdraw-label {
+  color: #b71c1c;
+  font-weight: 700;
+}
+
+.withdraw-ok {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
 /* === FIX ICONES LISTES =============================================== */
 
 .item-list .icon-cell img,
@@ -820,7 +930,7 @@
 }
 
 /* =======================================================================
-   HUD Unicreon : Mouvement + Actions
+   HUD Unicreon : Board de statut
    ======================================================================= */
 
 .unicreon-status-hud.app {
@@ -833,11 +943,19 @@
   color: #333;
 }
 
+/* Racine HUD */
+
 .u-status-root {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
+
+.u-status-root--compact {
+  gap: 0.35rem;
+}
+
+/* HEADER --------------------------------------------------------------- */
 
 .u-status-header {
   display: flex;
@@ -851,6 +969,7 @@
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  flex: 1;
 }
 
 .u-status-dot {
@@ -865,6 +984,38 @@
   );
   box-shadow: 0 0 6px rgba(82, 183, 136, 0.8);
 }
+
+.u-status-dot--idle {
+  background: radial-gradient(
+    circle at 30% 30%,
+    #ffe5b4 0%,
+    #f4a261 60%,
+    #e76f51 100%
+  );
+  box-shadow: 0 0 6px rgba(244, 162, 97, 0.7);
+}
+
+/* Bouton mode compact */
+
+.u-compact-toggle {
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  transition: background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.u-compact-toggle:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* SECTIONS DÉTAILLÉES -------------------------------------------------- */
 
 .u-status-section {
   padding-top: 0.35rem;
@@ -890,7 +1041,33 @@
   color: #514438;
 }
 
-/* Barre PM */
+/* Lignes inline (karma, xp, charge, trait) */
+
+.u-row-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.u-row-inline--space {
+  margin-top: 0.35rem;
+}
+
+.u-label-inline {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7a6b5d;
+}
+
+.u-value-inline {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #514438;
+}
+
+/* Barres (PV, PM, XP, Charge) ----------------------------------------- */
 
 .u-bar {
   position: relative;
@@ -899,17 +1076,53 @@
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  margin-top: 0.1rem;
 }
 
 .u-bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #cce6ff 0%, #8ac5ff 40%, #76d0b6 100%);
-  box-shadow: 0 0 6px rgba(134, 186, 255, 0.7);
   transition: width 180ms ease-out;
 }
 
-/* Cristaux d'action */
+.u-bar--hp {
+  margin-top: 0;
+}
+
+.u-bar-fill--hp {
+  background: linear-gradient(90deg, #ffb3ba 0%, #ff6f91 40%, #ff4b5c 100%);
+  box-shadow: 0 0 6px rgba(255, 111, 145, 0.8);
+}
+
+.u-bar-fill--default,
+.u-status-pm .u-bar-fill {
+  background: linear-gradient(90deg, #cce6ff 0%, #8ac5ff 40%, #76d0b6 100%);
+  box-shadow: 0 0 6px rgba(134, 186, 255, 0.7);
+}
+
+.u-bar--xp {
+  height: 6px;
+}
+
+.u-bar-fill--xp {
+  background: linear-gradient(90deg, #ffd166 0%, #f4a261 50%, #e76f51 100%);
+  box-shadow: 0 0 5px rgba(244, 162, 97, 0.8);
+}
+
+.u-bar--carry {
+  height: 6px;
+}
+
+.u-bar-fill--carry {
+  background: linear-gradient(90deg, #7fbf4f 0%, #f4b02a 50%, #f28f3b 100%);
+  box-shadow: 0 0 4px rgba(127, 191, 79, 0.7);
+}
+
+.u-bar-fill--carry.over {
+  background: linear-gradient(90deg, #c92a2a 0%, #f08c00 50%, #f94144 100%);
+}
+
+/* Cristaux d'action ---------------------------------------------------- */
 
 .u-crystals {
   display: flex;
@@ -950,7 +1163,108 @@
   box-shadow: none;
 }
 
-/* Message vide */
+/* MODE COMPACT --------------------------------------------------------- */
+
+.u-status-compact {
+  padding-top: 0.1rem;
+}
+
+.u-compact-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.u-compact-row--secondary {
+  margin-top: 0.2rem;
+}
+
+.u-compact-pill {
+  font-size: 0.78rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+}
+
+.u-pill-hp {
+  background: rgba(255, 219, 219, 0.95);
+  box-shadow: 0 0 0 1px rgba(200, 80, 80, 0.35);
+}
+
+.u-pill-trait {
+  background: rgba(200, 80, 80, 0.08);
+  box-shadow: 0 0 0 1px rgba(200, 80, 80, 0.3);
+}
+
+/* Mauvais trait / addiction ------------------------------------------- */
+
+.u-trait-addiction {
+  margin-top: 0.25rem;
+}
+
+.u-pill-addiction {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(183, 28, 28, 0.1);
+  color: #b71c1c;
+  border: 1px solid rgba(183, 28, 28, 0.4);
+}
+
+/* EFFETS --------------------------------------------------------------- */
+
+.u-effects-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+  max-height: 70px;
+  overflow-y: auto;
+}
+
+.u-effect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  cursor: default;
+}
+
+.u-effect-pill img {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.u-effect-pill--disabled {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.u-effect-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.u-effects-empty {
+  font-size: 0.78rem;
+  color: #817369;
+  font-style: italic;
+}
+
+/* MESSAGE VIDE --------------------------------------------------------- */
 
 .u-status-empty {
   padding: 0.4rem 0.1rem 0.1rem;

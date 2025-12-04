@@ -1,10 +1,77 @@
-<div class="u-status-root">
+<div class="u-status-root {{#if compact}}u-status-root--compact{{/if}}">
     {{#if hasActor}}
+
     <header class="u-status-header">
         <span class="u-status-dot"></span>
         <span class="u-status-title">{{actorName}}</span>
+
+        <button type="button" class="u-compact-toggle" data-action="toggle-compact"
+            title="{{#if compact}}Afficher les détails{{else}}Mode compact{{/if}}">
+            {{#if compact}}⤢{{else}}▢{{/if}}
+        </button>
     </header>
 
+    {{!-- ======================= MODE COMPACT ======================= --}}
+    {{#if compact}}
+
+    <section class="u-status-compact">
+        <div class="u-compact-row">
+            <span class="u-compact-pill u-pill-hp">
+                ♥ {{hpLeft}} / {{hpMax}}
+            </span>
+            <span class="u-compact-pill">
+                🦶 {{pmLeft}} / {{pmMax}}
+            </span>
+            <span class="u-compact-pill">
+                ⚡ {{actionsLeft}} / {{actionsTotal}}
+            </span>
+            <span class="u-compact-pill">
+                🔷 {{psLeft}} / {{psMax}}
+            </span>
+        </div>
+
+        <div class="u-compact-row u-compact-row--secondary">
+            <span class="u-compact-pill">
+                ☯ {{karma}}
+            </span>
+            <span class="u-compact-pill">
+                ⭐ {{xpCurrent}}{{#if xpNext}} / {{xpNext}}{{/if}}
+            </span>
+            <span class="u-compact-pill">
+                📦 {{carryUsed}}{{#if carryMax}} / {{carryMax}}{{/if}}
+            </span>
+            {{#if negativeTraitName}}
+            <span class="u-compact-pill u-pill-trait" title="Mauvais trait">
+                ✖ {{negativeTraitName}}
+                {{#if (ne addictionState "none")}}
+                · ⚠
+                {{/if}}
+            </span>
+            {{/if}}
+        </div>
+    </section>
+
+    {{else}}
+
+    {{!-- ======================= MODE DÉTAILLÉ ======================= --}}
+
+    {{!-- PV + Karma --}}
+    <section class="u-status-section u-status-hpkarma">
+        <div class="u-row-top">
+            <span class="u-label">♥ Vie</span>
+            <span class="u-value">{{hpLeft}} / {{hpMax}}</span>
+        </div>
+        <div class="u-bar u-bar--hp">
+            <div class="u-bar-fill u-bar-fill--hp" style="width: {{hpPercent}}%;"></div>
+        </div>
+
+        <div class="u-row-inline">
+            <span class="u-label-inline">☯ Karma :</span>
+            <span class="u-value-inline">{{karma}}</span>
+        </div>
+    </section>
+
+    {{!-- PM --}}
     <section class="u-status-section u-status-pm">
         <div class="u-row-top">
             <span class="u-label">
@@ -18,6 +85,7 @@
         </div>
     </section>
 
+    {{!-- Actions --}}
     <section class="u-status-section u-status-actions">
         <div class="u-row-top">
             <span class="u-label">
@@ -32,6 +100,8 @@
             {{/each}}
         </div>
     </section>
+
+    {{!-- Points de sorts --}}
     <section class="u-status-section u-status-spellpoints">
         <div class="u-row-top">
             <span class="u-label">
@@ -46,9 +116,96 @@
             {{/each}}
         </div>
     </section>
+
+    {{!-- XP + Charge --}}
+    <section class="u-status-section u-status-xpcharge">
+        <div class="u-row-inline">
+            <span class="u-label-inline">⭐ XP :</span>
+            <span class="u-value-inline">
+                {{xpCurrent}}{{#if xpNext}} / {{xpNext}}{{/if}}
+            </span>
+        </div>
+        {{#if xpNext}}
+        <div class="u-bar u-bar--xp">
+            <div class="u-bar-fill u-bar-fill--xp" style="width: {{xpPercent}}%;"></div>
+        </div>
+        {{/if}}
+
+        <div class="u-row-inline u-row-inline--space">
+            <span class="u-label-inline">📦 Charge :</span>
+            <span class="u-value-inline">
+                {{carryUsed}}{{#if carryMax}} / {{carryMax}}{{/if}}
+            </span>
+        </div>
+        {{#if carryMax}}
+        <div class="u-bar u-bar--carry">
+            <div class="u-bar-fill u-bar-fill--carry {{#if (gt carryUsed carryMax)}}over{{/if}}"
+                style="width: {{carryPercent}}%;"></div>
+        </div>
+        {{/if}}
+    </section>
+
+    {{!-- Mauvais trait / addiction --}}
+    <section class="u-status-section u-status-trait">
+        <div class="u-row-inline">
+            <span class="u-label-inline">✖ Mauvais trait :</span>
+            <span class="u-value-inline">
+                {{#if negativeTraitName}}
+                {{negativeTraitName}}
+                {{else}}
+                —
+                {{/if}}
+            </span>
+        </div>
+
+        {{#if (ne addictionState "none")}}
+        <div class="u-trait-addiction">
+            <span class="u-pill-addiction">
+                ⚠ Manque / addiction active
+            </span>
+        </div>
+        {{/if}}
+    </section>
+
+    {{!-- Effets actifs --}}
+    <section class="u-status-section u-status-effects">
+        <div class="u-row-top">
+            <span class="u-label">Effets</span>
+            {{#if hasEffects}}
+            <span class="u-value">{{effects.length}}</span>
+            {{/if}}
+        </div>
+
+        {{#if hasEffects}}
+        <div class="u-effects-list">
+            {{#each effects}}
+            <div class="u-effect-pill {{#if disabled}}u-effect-pill--disabled{{/if}}" title="{{summary}}">
+                {{#if icon}}
+                <img src="{{icon}}" alt="" />
+                {{/if}}
+                <span class="u-effect-name">{{name}}</span>
+            </div>
+            {{/each}}
+        </div>
+        {{else}}
+        <div class="u-effects-empty">
+            Aucun effet actif.
+        </div>
+        {{/if}}
+    </section>
+
+    {{/if}}
+
     {{else}}
+
+    <header class="u-status-header">
+        <span class="u-status-dot u-status-dot--idle"></span>
+        <span class="u-status-title">Statut Unicreon</span>
+    </header>
+
     <div class="u-status-empty">
         Aucun acteur sélectionné.
     </div>
+
     {{/if}}
 </div>

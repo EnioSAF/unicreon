@@ -6,6 +6,151 @@
 // Actor Unicreon : calcule les bonus/malus depuis system.effects
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Traits négatifs Unicreon – timers, secrets, addictions
+// ---------------------------------------------------------------------------
+
+const ADDICTION_WITHDRAWAL_THRESHOLD_HOURS = 24; // nb d'heures sans dose avant le manque
+
+const UNICREON_NEGATIVE_TRAITS = [
+  {
+    key: "none",
+    label: "Aucun défaut majeur",
+    secret: false,
+    shortActive: "Rien de particulièrement handicapant… pour l’instant.",
+    mechanics: {}
+  },
+
+  // ====== Défauts "simples" : 1 trait lourd par caractéristique ==========
+
+  {
+    key: "faible",
+    label: "Faible",
+    secret: false,
+    shortActive: "Jets de Puissance en désavantage par défaut.",
+    mechanics: {
+      caracDisadv: ["puissance"]
+    }
+  },
+  {
+    key: "pas-lourd",
+    label: "Pas lourd",
+    secret: false,
+    shortActive: "Jets d'Agilité en désavantage par défaut.",
+    mechanics: {
+      caracDisadv: ["agilite"]
+    }
+  },
+  {
+    key: "myope",
+    label: "Myope",
+    secret: false,
+    shortActive: "Jets de Perception en désavantage (vision approximative, attention flottante).",
+    mechanics: {
+      caracDisadv: ["perception"]
+    }
+  },
+  {
+    key: "bete",
+    label: "Bête",
+    secret: false,
+    shortActive: "Jets de Volonté en désavantage (esprit peu affûté, entêtement idiot).",
+    mechanics: {
+      caracDisadv: ["volonte"]
+    }
+  },
+  {
+    key: "magie-fissuree",
+    label: "Magie fissurée",
+    secret: false,
+    shortActive: "Jets de Pouvoir et de magie en désavantage.",
+    mechanics: {
+      caracDisadv: ["pouvoir"],
+      magicDisadv: true
+    }
+  },
+
+  // ====== Addiction : vrai timer temps réel + items =======================
+
+  {
+    key: "addicte",
+    label: "Addicte",
+    secret: false,
+    shortActive: "Après trop longtemps sans dose, tous les jets sont en désavantage.",
+    mechanics: {
+      addiction: true // le timer et le manque sont gérés par le système ci-dessous
+    }
+  },
+
+  // ====== Défauts secrets : se révèlent après X mauvais jets =============
+
+  {
+    key: "paranoiaque",
+    label: "Paranoïaque",
+    secret: true,
+    shortDormant: "Fatigue, insomnies, sursauts… On met ça sur le compte du stress.",
+    shortActive: "Jets de Volonté en désavantage (peur diffuse, suspicion permanente).",
+    mechanics: {
+      caracDisadv: ["volonte"]
+    },
+    // Se révèle après 2 mauvais jets de Volonté (résultat gardé ≤ 6)
+    secretTrigger: {
+      caracs: ["volonte"],
+      maxRoll: 6,
+      neededFails: 2
+    }
+  },
+  {
+    key: "marque-abime",
+    label: "Marqué par l’Abîme",
+    secret: true,
+    shortDormant: "Rêves marins, migraines, murmures lointains… tout va bien, probablement.",
+    shortActive: "Jets de Pouvoir en désavantage et magie instable.",
+    mechanics: {
+      caracDisadv: ["pouvoir"],
+      magicDisadv: true
+    },
+    // Se révèle après 2 mauvais jets de Pouvoir (résultat gardé ≤ 6)
+    secretTrigger: {
+      caracs: ["pouvoir"],
+      maxRoll: 6,
+      neededFails: 2
+    }
+  },
+
+  // ====== Défauts RP (sans mécanique auto, juste rappel permanent) ========
+
+  {
+    key: "malchanceux",
+    label: "Malchanceux",
+    secret: false,
+    shortActive: "Les tuiles lui tombent dessus. Le MJ est encouragé à lui mettre des bâtons dans les roues.",
+    mechanics: {}
+  },
+  {
+    key: "superstitieux",
+    label: "Superstitieux maladif",
+    secret: false,
+    shortActive: "Obsession des signes, présages, chiffres. Peut refuser des actions 'de principe'.",
+    mechanics: {}
+  },
+  {
+    key: "cruel",
+    label: "Cruel",
+    secret: false,
+    shortActive: "Prend plaisir à faire souffrir. Les PNJ finissent par le remarquer.",
+    mechanics: {}
+  },
+  {
+    key: "morbide",
+    label: "Obsédé par la mort",
+    secret: false,
+    shortActive: "Parle trop de cadavres, d’autopsies et d’extinctions. L’ambiance à table change un peu.",
+    mechanics: {}
+  }
+];
+
+
 class UnicreonActor extends Actor {
   prepareDerivedData() {
     super.prepareDerivedData();
@@ -228,20 +373,71 @@ export class UnicreonActorSheet extends ActorSheet {
     const items = actor.items ?? [];
 
     // ------------------------------------------------------------
-    // 0) Rendre les FLAGS accessibles au template
+    // 0) FLAGS Unicreon + infos de défaut / addiction
     // ------------------------------------------------------------
-    // Foundry ne met pas forcément actor.flags sur "data" pour toi,
-    // donc on l'ajoute manuellement et on s'assure que
-    // flags.unicreon existe avec des valeurs par défaut.
     const rawFlags = actor.flags ?? {};
     const unicreonFlags = rawFlags.unicreon ?? {};
+
+    const traitInfo = game.unicreon?.getNegativeTraitInfo
+      ? game.unicreon.getNegativeTraitInfo(actor)
+      : {
+        trait: null,
+        state: "none",
+        addictionType: null,
+        hoursSinceLastDose: null,
+        withdrawalActive: false
+      };
+
+    const currentTrait = traitInfo.trait;
+    const traitState = traitInfo.state; // "none" | "latent" | "revealed"
+
+    // Texte lisible pour l'addiction (affiché dans la fiche)
+    let addictionHoursText = "";
+
+    if (currentTrait && currentTrait.key === "addicte" && traitInfo.addictionType) {
+      const h = traitInfo.hoursSinceLastDose;
+
+      if (h == null) {
+        // Jamais consommé : manque direct
+        addictionHoursText = "Jamais consommé : en manque immédiat (désavantage global).";
+      } else {
+        const hoursInt = Math.floor(h);
+        const remaining = Math.max(0, ADDICTION_WITHDRAWAL_THRESHOLD_HOURS - hoursInt);
+
+        if (traitInfo.withdrawalActive) {
+          addictionHoursText = `En manque depuis environ ${hoursInt} h (désavantage global).`;
+        } else {
+          addictionHoursText = `Dernière dose il y a ~${hoursInt} h (manque dans ~${remaining} h).`;
+        }
+      }
+    }
 
     data.flags = data.flags ?? {};
     data.flags.unicreon = {
       story: unicreonFlags.story ?? "",
       race: unicreonFlags.race ?? "",
-      metier: unicreonFlags.metier ?? ""
+      metier: unicreonFlags.metier ?? "",
+      negativeTrait: unicreonFlags.negativeTrait ?? "none",
+      negativeTraitState: traitState,
+      addictionType: traitInfo.addictionType || "",
+      addictionWithdrawal: traitInfo.withdrawalActive,
+      addictionHoursText
     };
+    // Liste des traits dispo pour le <select>
+    data.negativeTraits = UNICREON_NEGATIVE_TRAITS;
+
+    // Trait courant (celui de getNegativeTraitInfo)
+    data.currentNegativeTrait = currentTrait;
+
+    // Infos d’affichage pour le template
+    data.negativeTraitUi = {
+      isNone: traitState === "none",
+      isSecret: !!(currentTrait && currentTrait.secret),
+      isLatent: traitState === "latent"
+    };
+
+    data.addictionInfo = traitInfo;
+    data.isAddicte = !!(currentTrait && currentTrait.key === "addicte");
 
     // ------------------------------------------------------------
     // 1) Caracs de base Unicreon
@@ -501,6 +697,20 @@ export class UnicreonActorSheet extends ActorSheet {
       this._onActionsChange.bind(this)
     );
 
+    // Tirage aléatoire d'un trait négatif
+    html.on(
+      "click",
+      "[data-action='random-negative-trait']",
+      this._onRandomNegativeTrait.bind(this)
+    );
+
+    // Consommer une dose tout de suite (Addicte)
+    html.on(
+      "click",
+      "[data-action='addiction-consume-now']",
+      this._onAddictionConsumeNow.bind(this)
+    );
+
     // (Dé)équiper un objet depuis la fiche
     html.on("click", "[data-action='toggle-equip']", this._onToggleEquip.bind(this));
 
@@ -517,6 +727,58 @@ export class UnicreonActorSheet extends ActorSheet {
   // -----------------------------------------------------------------------
   // utilitaires
   // -----------------------------------------------------------------------
+
+  // -----------------------------------------------------------------------
+  // Tirage aléatoire du trait négatif (évite "none")
+  // -----------------------------------------------------------------------
+  async _onRandomNegativeTrait(event) {
+    event.preventDefault();
+
+    const pool = UNICREON_NEGATIVE_TRAITS.filter(t => t.key !== "none");
+    if (!pool.length) return;
+
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+
+    const update = {
+      "flags.unicreon.negativeTrait": pick.key,
+      "flags.unicreon.negativeTraitFailCount": 0
+    };
+
+    if (pick.secret) {
+      update["flags.unicreon.negativeTraitState"] = "latent";
+    } else {
+      update["flags.unicreon.negativeTraitState"] = "revealed";
+    }
+
+    if (pick.key !== "addicte") {
+      update["flags.unicreon.addictionType"] = "";
+      update["flags.unicreon.addictionLastUseMs"] = 0;
+      update["flags.unicreon.addictionWithdrawal"] = false;
+    }
+
+    await this.actor.update(update);
+    this.render(false);
+  }
+
+  // -----------------------------------------------------------------------
+  // Bouton : consommer une dose maintenant (Addicte)
+  // -----------------------------------------------------------------------
+  async _onAddictionConsumeNow(event) {
+    event.preventDefault();
+    const actor = this.actor;
+    if (!actor) return;
+
+    const type = actor.flags?.unicreon?.addictionType || null;
+    if (!type) {
+      ui.notifications.warn("Choisis d'abord un type de dépendance (tabac, alcool ou drogue).");
+      return;
+    }
+
+    await game.unicreon.addiction.consume(actor, type);
+    this.render(false);
+  }
+
+  /* Récupère l'item cliqué depuis un event (ouvrir, supprimer, etc.) */
 
   _getItemFromEvent(event) {
     const li = event.currentTarget.closest("[data-item-id]");
@@ -918,13 +1180,13 @@ export class UnicreonActorSheet extends ActorSheet {
   }
 
   // -----------------------------------------------------------------------
-  // Jet Unicreon générique (bouton "Test")
+  // Jet Unicreon générique (bouton "Test rapide")
   // -----------------------------------------------------------------------
-
   async _onRollTest(event) {
     event.preventDefault();
 
-    const sysActor = this.actor.system ?? {};
+    const actor = this.actor;
+    const sysActor = actor.system ?? {};
     const caracOptions = [
       { key: "puissance", label: "Puissance" },
       { key: "agilite", label: "Agilité" },
@@ -933,22 +1195,23 @@ export class UnicreonActorSheet extends ActorSheet {
       { key: "pouvoir", label: "Pouvoir" }
     ];
 
+    // Petit formulaire : choisir la carac et un label optionnel
     let content = `<form>
-  <div class="form-group">
-    <label>Caractéristique</label>
-    <select name="carac">`;
+    <div class="form-group">
+      <label>Caractéristique</label>
+      <select name="carac">`;
     for (const c of caracOptions) {
       content += `<option value="${c.key}">${c.label}</option>`;
     }
     content += `</select></div>
-  <div class="form-group">
-    <label>Compétence libre (texte)</label>
-    <input type="text" name="skillLabel" placeholder="Optionnel (description)"/>
-  </div>
-</form>`;
+    <div class="form-group">
+      <label>Compétence libre (texte)</label>
+      <input type="text" name="skillLabel" placeholder="Optionnel (description)"/>
+    </div>
+  </form>`;
 
     const result = await Dialog.prompt({
-      title: `Test Unicreon — ${this.actor.name}`,
+      title: `Test Unicreon — ${actor.name}`,
       content,
       label: "Lancer",
       callback: html => ({
@@ -959,37 +1222,89 @@ export class UnicreonActorSheet extends ActorSheet {
 
     if (!result) return;
 
-    const sourceAtt = sysActor.attributes ?? {};
-    const baseCarac = sourceAtt[result.carac] || "d6";
-    const caracDie = this._normalizeDie(baseCarac, "1d6");
+    const caracKey = result.carac;
+    const attributes = sysActor.attributes ?? {};
+    const rawDie = attributes[caracKey] || "d6"; // ex "d8", "d6", "10" etc.
 
-    const bonusMap = sysActor.derived?.caracBonusValues ?? {};
-    const caracBonus = Number(bonusMap[result.carac] || 0);
+    // Normalise le dé en "dX" (pas "1dX") pour pouvoir faire 2dXkh1
+    let dieFaces = "6";
+    const txt = String(rawDie).trim().toLowerCase();
+    const m = txt.match(/d?(\d+)/);
+    if (m) dieFaces = m[1];
 
-    let caracFormula = caracDie;
-    if (caracBonus) {
-      caracFormula += caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`;
-    }
+    const caracBonusMap = sysActor.derived?.caracBonusValues ?? {};
+    const caracBonus = Number(caracBonusMap[caracKey] || 0);
+    const bonusPart = caracBonus
+      ? (caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`)
+      : "";
 
-    const roll = await (new Roll(caracFormula)).roll({ async: true });
-
-    const chatContent = `
-  <div class="unicreon-card">
-    <h2>Test Unicreon — ${this.actor.name}</h2>
-    <p><b>Carac :</b> ${result.carac} (${caracFormula})</p>
-    ${result.skillLabel ? `<p><b>Compétence :</b> ${result.skillLabel}</p>` : ""}
-    <p><b>Résultat :</b> ${roll.total}</p>
-  </div>
-`;
-
-    await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      content: chatContent
+    // Mode par défaut selon le mauvais trait
+    const defaultMode = game.unicreon.getDefaultModeFromTrait({
+      actor,
+      caracKey,
+      isMagic: false
     });
 
+    // On pourrait ajouter un choix manuel ici si tu veux (comme pour les compétences),
+    // mais pour l'instant on se contente du mode auto.
+    const mode = defaultMode; // "normal" | "adv" | "disadv"
+
+    let rollFormula;
+    let modeLabel = "Normal";
+
+    if (mode === "adv") {
+      // avantage : 2dXkh1 + bonus
+      rollFormula = `2d${dieFaces}kh1${bonusPart}`;
+      modeLabel = "Avantage (trait)";
+    } else if (mode === "disadv") {
+      // désavantage : 2dXkl1 + bonus
+      rollFormula = `2d${dieFaces}kl1${bonusPart}`;
+      modeLabel = "Désavantage (trait)";
+    } else {
+      // normal : 1dX + bonus
+      rollFormula = `1d${dieFaces}${bonusPart}`;
+    }
+
+    const roll = await (new Roll(rollFormula)).roll({ async: true });
+
+    // Mise à jour des traits secrets / progression
+    await game.unicreon.updateNegativeTraitProgress({
+      actor,
+      caracKey,
+      rollTotal: roll.total
+    });
+
+    // Description du trait dans la carte
+    const traitInfo = game.unicreon.getNegativeTraitInfo(actor);
+    let traitHtml = "";
+    if (traitInfo.trait && traitInfo.trait.key !== "none") {
+      const t = traitInfo.trait;
+      if (t.secret && traitInfo.state === "latent") {
+        const desc = t.shortDormant || "Ce défaut reste pour l'instant diffus et mal compris.";
+        traitHtml = `<p class="hint">Trait latent (secret) : <b>${t.label}</b> — ${desc}</p>`;
+      } else {
+        const desc = t.shortActive || t.shortDormant || "";
+        traitHtml = `<p class="hint">Trait actif : <b>${t.label}</b>${desc ? " — " + desc : ""}</p>`;
+      }
+    }
+
+    const caracLabel =
+      caracOptions.find(c => c.key === caracKey)?.label || caracKey;
+
+    const chatContent = `
+    <div class="unicreon-card">
+      <h2>Test Unicreon — ${actor.name}</h2>
+      <p><b>Carac :</b> ${caracLabel} (${rollFormula})</p>
+      ${result.skillLabel ? `<p><b>Contexte :</b> ${result.skillLabel}</p>` : ""}
+      <p><b>Mode :</b> ${modeLabel}</p>
+      <p><b>Résultat :</b> ${roll.total}</p>
+      ${traitHtml}
+    </div>
+  `;
+
     await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `${this.actor.name} — Test Unicreon`,
+      speaker: ChatMessage.getSpeaker({ actor }),
+      content: chatContent,
       rolls: [roll],
       type: CONST.CHAT_MESSAGE_TYPES.ROLL
     });
@@ -1074,6 +1389,230 @@ Hooks.once("ready", () => {
     return fallback;
   };
 
+  // -----------------------------------------------------------------------
+  // TRAITS NÉGATIFS – helpers globaux
+  // -----------------------------------------------------------------------
+
+  const getNowMs = () => Date.now();
+
+  const getNegativeTraitInfo = (actor) => {
+    if (!actor) {
+      return {
+        trait: null,
+        state: "none",
+        addictionType: null,
+        hoursSinceLastDose: null,
+        withdrawalActive: false
+      };
+    }
+
+    const flags = actor.flags?.unicreon ?? {};
+    const key = flags.negativeTrait ?? "none";
+
+    const trait =
+      UNICREON_NEGATIVE_TRAITS.find(t => t.key === key) ||
+      UNICREON_NEGATIVE_TRAITS[0] ||
+      null;
+
+    // État du trait : none / latent / revealed
+    let state = "none";
+    if (!trait || trait.key === "none") {
+      state = "none";
+    } else if (trait.secret) {
+      state = flags.negativeTraitState || "latent";
+    } else {
+      state = "revealed";
+    }
+
+    const addictionType = flags.addictionType || null;
+    const lastUseMs = Number(flags.addictionLastUseMs || 0) || 0;
+
+    let hoursSinceLastDose = null;
+    let withdrawalActive = false;
+
+    // Gestion de l’addiction temps réel
+    if (trait && trait.key === "addicte" && addictionType) {
+      const now = getNowMs();
+      if (lastUseMs > 0 && now > lastUseMs) {
+        const diffMs = now - lastUseMs;
+        hoursSinceLastDose = diffMs / (1000 * 60 * 60);
+        withdrawalActive = hoursSinceLastDose >= ADDICTION_WITHDRAWAL_THRESHOLD_HOURS;
+      } else {
+        // Jamais consommé : considéré comme en manque direct
+        hoursSinceLastDose = null;
+        withdrawalActive = true;
+      }
+    }
+
+    return {
+      trait,
+      state,
+      addictionType,
+      hoursSinceLastDose,
+      withdrawalActive
+    };
+  };
+
+  /**
+   * Retourne "normal" ou "disadv" en fonction du trait, de la carac et de la magie.
+   */
+  const getDefaultModeFromTrait = ({ actor, caracKey, isMagic = false }) => {
+    const info = getNegativeTraitInfo(actor);
+    const { trait, state, withdrawalActive } = info;
+    if (!trait || trait.key === "none") return "normal";
+
+    const mech = trait.mechanics || {};
+
+    // Traits secrets : actifs uniquement une fois révélés
+    const isActive = !trait.secret || state === "revealed";
+    if (!isActive) return "normal";
+
+    // Addicte : si le manque est actif, désavantage global
+    if (mech.addiction && withdrawalActive) {
+      return "disadv";
+    }
+
+    // Désavantage direct sur certaines caracs
+    if (caracKey && Array.isArray(mech.caracDisadv) && mech.caracDisadv.includes(caracKey)) {
+      return "disadv";
+    }
+
+    // Magie instable
+    if (isMagic && mech.magicDisadv) {
+      return "disadv";
+    }
+
+    return "normal";
+  };
+
+  /**
+   * Mise à jour des traits secrets après un jet :
+   * - si le résultat rempli la condition, on incrémente le compteur
+   * - quand on atteint le seuil, le trait se révèle
+   */
+  const updateNegativeTraitProgress = async ({ actor, caracKey, rollTotal }) => {
+    const info = getNegativeTraitInfo(actor);
+    const { trait, state } = info;
+    if (!trait || !trait.secret) return;
+    if (state === "revealed") return;
+
+    const trig = trait.secretTrigger;
+    if (!trig) return;
+
+    if (Array.isArray(trig.caracs) && !trig.caracs.includes(caracKey)) return;
+    if (typeof trig.maxRoll === "number" && rollTotal > trig.maxRoll) return;
+
+    const flags = actor.flags?.unicreon ?? {};
+    const current = Number(flags.negativeTraitFailCount || 0) || 0;
+    const needed = Number(trig.neededFails || 1) || 1;
+    const next = current + 1;
+
+    if (next < needed) {
+      await actor.setFlag("unicreon", "negativeTraitFailCount", next);
+      return;
+    }
+
+    await actor.setFlag("unicreon", "negativeTraitState", "revealed");
+    await actor.setFlag("unicreon", "negativeTraitFailCount", 0);
+
+    ui.notifications.info(
+      `${actor.name} révèle enfin son véritable défaut : « ${trait.label} ».`
+    );
+  };
+
+  // -----------------------------------------------------------------------
+  // Addiction temps réel (tabac / alcool / drogue)
+  // -----------------------------------------------------------------------
+
+  const setAddictionType = async (actor, type) => {
+    if (!actor) return;
+    const cleanType = ["tabac", "alcool", "drogue"].includes(type) ? type : null;
+
+    const update = {
+      "flags.unicreon.addictionType": cleanType,
+      "flags.unicreon.addictionLastUseMs": cleanType ? getNowMs() : 0,
+      "flags.unicreon.addictionWithdrawal": false
+    };
+
+    await actor.update(update);
+  };
+
+  const consumeAddictionDose = async (actor, typeOptional) => {
+    if (!actor) return;
+
+    const flags = actor.flags?.unicreon ?? {};
+    let type = typeOptional || flags.addictionType || null;
+    if (!type) return;
+    if (!["tabac", "alcool", "drogue"].includes(type)) return;
+
+    await actor.update({
+      "flags.unicreon.addictionType": type,
+      "flags.unicreon.addictionLastUseMs": getNowMs(),
+      "flags.unicreon.addictionWithdrawal": false
+    });
+
+    ui.notifications.info(
+      `${actor.name} consomme sa dose (${type}). Le manque est temporairement apaisé.`
+    );
+  };
+
+  const checkAndUpdateAddiction = async (actor) => {
+    if (!actor) return;
+
+    const info = getNegativeTraitInfo(actor);
+    const { trait, addictionType, hoursSinceLastDose, withdrawalActive } = info;
+
+    if (!trait || trait.key !== "addicte" || !addictionType) {
+      await actor.update({
+        "flags.unicreon.addictionWithdrawal": false
+      });
+      return;
+    }
+
+    const prevFlag = !!actor.flags?.unicreon?.addictionWithdrawal;
+
+    if (withdrawalActive !== prevFlag) {
+      await actor.update({
+        "flags.unicreon.addictionWithdrawal": withdrawalActive
+      });
+
+      if (withdrawalActive) {
+        ui.notifications.info(
+          `${actor.name} est maintenant en manque de ${addictionType} (désavantage global).`
+        );
+      } else {
+        ui.notifications.info(
+          `${actor.name} n'est plus en manque de ${addictionType}.`
+        );
+      }
+    }
+  };
+
+  // Timer global : toutes les X minutes, le MJ recalcule les manques
+  if (game.user.isGM) {
+    const CHECK_INTERVAL_MINUTES = 5;
+    setInterval(() => {
+      for (const actor of game.actors) {
+        if (actor.type !== "personnage") continue;
+        const flags = actor.flags?.unicreon ?? {};
+        if (flags.negativeTrait !== "addicte") continue;
+        checkAndUpdateAddiction(actor);
+      }
+    }, CHECK_INTERVAL_MINUTES * 60 * 1000);
+  }
+
+  // Exposition dans le namespace
+  game.unicreon.getNegativeTraitInfo = getNegativeTraitInfo;
+  game.unicreon.getDefaultModeFromTrait = getDefaultModeFromTrait;
+  game.unicreon.updateNegativeTraitProgress = updateNegativeTraitProgress;
+
+  game.unicreon.addiction = {
+    setType: setAddictionType,
+    consume: consumeAddictionDose,
+    check: checkAndUpdateAddiction
+  };
+
+
   // -------------------------------------------------------------------------
   // Jet de COMPÉTENCE Unicreon (dialogue Normal / Avantage / Désavantage)
   // -------------------------------------------------------------------------
@@ -1098,12 +1637,11 @@ Hooks.once("ready", () => {
       name.includes("resistance mentale");
 
     if (isDefense && game.unicreon?.useDefenseStance) {
-      // → POSE LA POSTURE défensive AVANT de lancer les jets
       await game.unicreon.useDefenseStance(item);
     }
 
     // -------------------------------------------------------------
-    // (2) JET DE CARAC + COMPÉTENCE (comme avant)
+    // (2) JET DE CARAC + COMPÉTENCE
     // -------------------------------------------------------------
     const die = sysItem.level || "d6";
     const caracKey = sysItem.caracKey || "puissance";
@@ -1114,6 +1652,34 @@ Hooks.once("ready", () => {
     const caracBonus = Number(sysActor.derived?.caracBonusValues?.[caracKey] || 0);
     let caracFormula = caracDie + (caracBonus ? (caracBonus > 0 ? `+${caracBonus}` : `${caracBonus}`) : "");
 
+    const magicTypes = ["pouvoir", "incantation", "rituel", "sort", "spell"];
+    const isMagic = magicTypes.includes(item.type);
+
+    const defaultMode = game.unicreon.getDefaultModeFromTrait({
+      actor,
+      caracKey,
+      isMagic
+    });
+
+    const traitInfo = game.unicreon.getNegativeTraitInfo(actor);
+    let traitHtml = "";
+    if (traitInfo.trait && traitInfo.trait.key !== "none") {
+      const t = traitInfo.trait;
+      if (t.secret && traitInfo.state === "latent") {
+        const desc = t.shortDormant || "Ce défaut reste pour l'instant diffus et mal compris.";
+        traitHtml = `<p class="hint">Trait latent (secret) : <b>${t.label}</b> — ${desc}</p>`;
+      } else {
+        const desc = t.shortActive || t.shortDormant || "";
+        traitHtml = `<p class="hint">Trait actif : <b>${t.label}</b>${desc ? " — " + desc : ""}</p>`;
+      }
+    }
+
+    const optionsHtml = `
+      <option value="normal"${defaultMode === "normal" ? " selected" : ""}>Normal</option>
+      <option value="adv"${defaultMode === "adv" ? " selected" : ""}>Avantage</option>
+      <option value="disadv"${defaultMode === "disadv" ? " selected" : ""}>Désavantage</option>
+    `;
+
     const mode = await Dialog.prompt({
       title: `Jet — ${item.name}`,
       content: `
@@ -1121,11 +1687,10 @@ Hooks.once("ready", () => {
         <div class="form-group">
           <label>Mode :</label>
           <select name="mode">
-            <option value="normal">Normal</option>
-            <option value="adv">Avantage</option>
-            <option value="disadv">Désavantage</option>
+            ${optionsHtml}
           </select>
         </div>
+        ${traitHtml}
       </form>
     `,
       label: "Lancer",
@@ -1134,20 +1699,27 @@ Hooks.once("ready", () => {
 
     if (!mode) return;
 
-    let skillFormula = mode === "adv"
-      ? `2${die}kh1`
-      : mode === "disadv"
-        ? `2${die}kl1`
-        : `1${die}`;
+    let skillFormula;
+    if (mode === "adv") {
+      skillFormula = `2${die}kh1`;
+    } else if (mode === "disadv") {
+      skillFormula = `2${die}kl1`;
+    } else {
+      skillFormula = `1${die}`;
+    }
 
     const rollCarac = await (new Roll(caracFormula)).roll({ async: true });
     const rollSkill = await (new Roll(skillFormula)).roll({ async: true });
 
     const kept = Math.max(rollCarac.total, rollSkill.total);
 
-    // -------------------------------------------------------------
-    // (3) MESSAGE DE CHAT
-    // -------------------------------------------------------------
+    // Mise à jour des traits secrets
+    await game.unicreon.updateNegativeTraitProgress({
+      actor,
+      caracKey,
+      rollTotal: kept
+    });
+
     const card = `
     <div class="unicreon-card">
       <h2>${actor.name} — ${item.name}</h2>
@@ -1165,6 +1737,7 @@ Hooks.once("ready", () => {
     await rollCarac.toMessage({ flavor: `${actor.name} — Caractéristique (${caracKey})` });
     await rollSkill.toMessage({ flavor: `${actor.name} — Compétence (${item.name}) (${mode})` });
   };
+
 
   // -----------------------------------------------------------------------
   // Drag & drop vers la hotbar : on laisse Foundry créer le macro,
@@ -1218,6 +1791,11 @@ Hooks.once("ready", () => {
     const name = item.name || "";
     const lowerName = name.toLowerCase();
     const sysItem = item.system ?? {};
+
+    // Consommation d'une dose d'addiction si l'item est marqué
+    if (sysItem.addictionType && game.unicreon?.addiction?.consume) {
+      await game.unicreon.addiction.consume(actor, sysItem.addictionType);
+    }
 
     const magicTypes = ["pouvoir", "incantation", "rituel", "sort", "spell"];
     const isMagic = magicTypes.includes(type);
